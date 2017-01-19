@@ -15,8 +15,11 @@ cabal-version:       >=1.10
 
 library
   hs-source-dirs:      src
-  exposed-modules:     Lib
+  exposed-modules:     IG, IG.REST.Login
   build-depends:       base >= 4.7 && < 5
+                     , aeson
+                     , scientific
+                     , text
   default-language:    Haskell2010
 
 test-suite ig-haskell-test
