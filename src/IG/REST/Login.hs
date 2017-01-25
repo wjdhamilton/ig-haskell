@@ -14,12 +14,11 @@ import Data.Monoid
 import Data.Text as Text
 import Data.Text.Encoding as TE
 import Data.Scientific
-import IG (apiError, host)
 import GHC.Generics
-import Network.HTTP.Client.TLS (tlsManagerSettings)
+import IG (ApiError, apiError, decodeError, host)
+import IG.REST
 import Network.HTTP.Types hiding (statusCode)
 import Network.Wreq
-import IG.REST
 -- Actions to create: 
 -- Log in
 -- Log out
@@ -27,15 +26,6 @@ import IG.REST
 -- switch account
 -- get encryption key
 -- refresh the token
-
--- | Encapsulates the Client Security Token and Account Session access token. 
--- These are both required for accessing the api and are acquired using @login
-data AuthHeaders = AuthHeaders {
-                               -- | The Client Security Token
-                               cst :: Text
-                               -- | The account session security access token
-                               , securityToken :: Text
-                               } deriving (Show)
 
 -- | Represents the payload returned by the API when the user successfully logs
 -- in.
@@ -156,20 +146,15 @@ login isDemo key logBody = do
                         Just (cst, xst) -> do 
                           let clientToken = decodeUtf8 cst
                           let sessToken = decodeUtf8 xst
-                          return $ Right (AuthHeaders clientToken sessToken, res)
+                          return $ 
+                            Right (AuthHeaders clientToken sessToken key isDemo, res)
                         Nothing -> return $ Left "Could not parse tokens"
        _ -> apiError response Map.empty
   where loginUrl = Text.unpack $ host isDemo <> restPath
 
 
 loginOptions :: Text -> Options
-loginOptions key = defaults & header "X-IG-API-KEY" .~ [TE.encodeUtf8 key]
-                            & header "Accept" .~ ["application/json"]
-                            & header "Content-Type" .~ [ "application/json" ]
-                            & header "Version" .~ [ "2" ]
-                            & manager .~ Left (tlsManagerSettings)
-
-
+loginOptions key = baseHeaders "2" key
 
 
 getSecurityHeaders :: Response BL.ByteString -> Maybe (BS.ByteString, BS.ByteString)
@@ -177,12 +162,53 @@ getSecurityHeaders response = (,) <$> cst <*> xst
   where cst = response ^? responseHeader "CST"
         xst = response ^? responseHeader "X-SECURITY-TOKEN"
 
-logout :: AuthHeaders -> IO (Either String ())
-logout headers = postWith opts (host False <> restPath)
-  where opts = 
+
+logout :: AuthHeaders -> IO (Either ApiError ())
+logout headers = do 
+  let opts = buildHeaders "1" headers
+  r <- deleteWith opts $ Text.unpack (host (isDemo headers) <> restPath)
+  case r ^. responseStatus ^. statusCode of
+       204 -> do return $ Right ()
+       _   -> do return . Left $ decodeError (r ^. responseBody)
 
 
-sessionDetails = undefined
+-- | Details of the current session as returned by GET /session Note that 
+-- all of the fields in this object terminate with an apostrophe. This is to 
+-- avoid name collisions with LoginResponse and will be updated in future 
+-- releases, OverloadedRecordFields is implemented in GHC
+data SessionDetails = SessionDetails { clientId' :: Text
+                                     , accountId' :: Text
+                                     , timezoneOffset' :: Int
+                                     , locale' :: Text
+                                     , currency' :: Text
+                                     , lightstreamerEndpoint' :: Text
+                                     } deriving (Generic, Show)
+
+instance FromJSON SessionDetails where
+
+  parseJSON = withObject "SessionDetails" $ \o -> do
+    cId <- o .: "clientId"
+    aId <- o .: "accountId"
+    tzO <- o .: "timezoneOffset"
+    loc <- o .: "locale"
+    cny <- o .: "currency"
+    lse <- o .: "lightstreamerEndpoint"
+    return $ SessionDetails cId aId tzO loc cny lse
+
+
+-- | Return an instance of SessionDetails for the active account
+sessionDetails :: AuthHeaders -> IO (Either ApiError SessionDetails)
+sessionDetails a@(AuthHeaders _ _ _ isLogin) = do
+  let opts = buildHeaders "1" a
+  r <- getWith opts (unpack $ host isLogin <> restPath)
+  let bod = r ^. responseBody
+  case r ^. responseStatus ^. statusCode of
+       200 -> do
+         either (\_ -> error "Could not decode session details")
+                (\sessionDetails -> do return $ Right sessionDetails)
+                (eitherDecode bod)
+       _ -> do
+         return $ Left (decodeError bod)
 
 
 switchAccount = undefined
