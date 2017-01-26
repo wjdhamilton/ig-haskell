@@ -117,7 +117,7 @@ data ReroutingEnvironment = DEMO
 
 instance FromJSON ReroutingEnvironment
 
-
+-- | Represents the body content required to successfully log into the api
 data LoginBody = LoginBody { 
                            -- | Whether or not the password has been encrypted
                              encryptedPassword :: Bool
@@ -162,7 +162,7 @@ getSecurityHeaders response = (,) <$> cst <*> xst
   where cst = response ^? responseHeader "CST"
         xst = response ^? responseHeader "X-SECURITY-TOKEN"
 
-
+-- | Log out of the API
 logout :: AuthHeaders -> IO (Either ApiError ())
 logout headers = do 
   let opts = buildHeaders "1" headers
@@ -211,7 +211,26 @@ sessionDetails a@(AuthHeaders _ _ _ isLogin) = do
          return $ Left (decodeError bod)
 
 
-switchAccount = undefined
+-- Data required for a switchAccount request
+data SwitchAccountData = SwitchAccountData Text Bool deriving (Generic, Show)
+
+instance ToJSON SwitchAccountData
+
+
+-- | Switch to a different user account. Untested as of 26/01/2016 since 403
+-- error was constantly returned by the Api Companion when testing
+switchAccount :: AuthHeaders -> Text -> Bool -> IO Bool
+switchAccount a@(AuthHeaders _ _ _ isLogin) id isDefault = do
+  let payload = SwitchAccountData id isDefault
+  let opts = buildHeaders "1" a
+  r <- putWith opts (unpack $ host isLogin <> restPath) payload
+  case r ^. responseStatus ^. statusCode of
+       200 -> return $ True
+       _   -> return $ False
+
+
+accountsPath :: Bool -> String
+accountsPath isLogin = unpack $ host isLogin <> restPath
 
 
 encryptionKey = undefined
