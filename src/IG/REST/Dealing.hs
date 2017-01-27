@@ -1,16 +1,41 @@
+{-# LANGUAGE DeriveGeneric #-}
+{-# LANGUAGE OverloadedStrings #-}
 -- | Functions for sending requests to the Dealing endpoint of the API
-module Dealing where
+module IG.REST.Dealing where
 
 import Control.Lens
 import Data.Aeson
 import Data.Aeson.Lens
+import Data.Monoid
+import Data.Text (Text)
+import qualified Data.Text as Text
+import Data.Time
+import GHC.Generics
 import IG
 import IG.REST
+import IG.REST.Dealing.Types
+import Network.Wreq
+
+confirmPath = "gateway/deal/confirms/"
 
 -- | Obtain a DealConfirmation for a given reference. 
-confirms a@(AuthHeaders _ _ isLogin _) ref = undefined
+confirms :: AuthHeaders -> Text -> IO (Either ApiError DealConfirmation)
+confirms a@(AuthHeaders _ _ _ isLogin) ref = do
+  let opts = buildHeaders "1" a
+  let url = Text.unpack $ host isLogin <> confirmPath <> "/" <> ref
+  confirmation <- getWith opts url
+  let body = confirmation ^. responseBody
+  case confirmation ^. responseStatus ^. statusCode of
+       200 -> do
+         case eitherDecode body of
+              Left e -> return $ Left (UnknownError $ Text.pack e)
+              Right dealConf -> return $ Right dealConf
 
-
+       404 -> return $ Left DealNotFound
+       _ -> do
+         return $ Left (decodeError body)
+         
+  
 -- | Return all open positions for the active account
 allPositions a@(AuthHeaders _ _ isLogin _) = undefined
 

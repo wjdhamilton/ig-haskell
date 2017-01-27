@@ -7,6 +7,7 @@ import Data.Aeson
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.Lazy as BL
 import Data.Map.Strict as Map
+import qualified Data.HashMap.Strict as HM
 import Data.Text (Text)
 import qualified Data.Text as Text
 import Data.Text.Encoding
@@ -31,6 +32,7 @@ data ApiError = AccountDisabled -- ^ The user's preferred account is disabled.
               | ApiKeyUnaccepted -- ^ The provided api key was unaccepted. 
               | CannotUseApi -- ^ The account is not allowed to log into public API. Please use the web platform.
               | CredentialsMissing -- ^ The user has not provided all required security credentials
+              | DealNotFound -- ^ The referenced deal could not be found
               | DisabledApiKey -- ^ The provided api key was not accepted because it is not currently enabled
               | EncryptionRequired -- ^ A login has been attempted to the login V1 service by a client from the IG Singapore company. They need to use the v2 version as they need to send their passwords encrypted.
               | HistoricalAllowanceExceeded -- ^ The account historical data traffic allowance has been exceeded
@@ -68,6 +70,13 @@ decodeError err = case decode err >>= findError of
 
 findError :: Value -> Maybe ApiError
 findError (String s) = lookup s errorMap
+findError (Object o) = lookup key errorMap
+  where key = case HM.lookup "errorCode" o of
+                   Nothing -> "oops"
+                   Just (String e) -> e
+                   -- errorCode should always map to a string
+                   Just x          -> "oops"
+
 
 errorMap :: Map Text ApiError
 errorMap = empty
@@ -95,3 +104,4 @@ errorMap = empty
              |> insert "error.security.api-key-invalid" InvalidApiKey
              |> insert "error.security.api-key-revoked" ApiKeyRevoked
              |> insert "error.security.get.session.timeout" SessionTimeout
+             |> insert "error.confirms.deal-not-found" DealNotFound
