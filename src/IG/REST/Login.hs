@@ -129,6 +129,8 @@ data LoginBody = LoginBody {
 
 instance ToJSON LoginBody
 
+restPath :: Text
+restPath = "gateway/deal/session"
 
 -- | Log in to the IG API. On success, a 
 login :: Bool -> Text -> LoginBody -> IO (Either String (AuthHeaders, LoginResponse))

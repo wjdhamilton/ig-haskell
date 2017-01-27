@@ -22,9 +22,6 @@ data AuthHeaders = AuthHeaders {
                                , isDemo :: Bool
                                } deriving (Show)
 
-restPath :: Text
-restPath = "gateway/deal/session"
-
 buildHeaders :: Text -> AuthHeaders -> Options
 buildHeaders version (AuthHeaders c x k _) = 
   baseHeaders version k & header "CST" .~ [TE.encodeUtf8 c]
@@ -37,3 +34,4 @@ baseHeaders v key = defaults & header "Accept" .~ ["application/json"]
                              & header "Version" .~ [ TE.encodeUtf8 v ]
                              & header "X-IG-API-KEY" .~ [TE.encodeUtf8 key]
                              & manager .~ Left (tlsManagerSettings)
+                             & checkStatus .~ (Just $ \_ _ _  -> Nothing)
