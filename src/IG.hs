@@ -19,8 +19,14 @@ import Text.Regex.PCRE hiding (empty)
 -- | Returns the host url of the IG API server. 
 host :: Bool -- ^ If True then the demo address is returned, production otherwise
      -> Text -- ^ The host url
-host isDemo = if isDemo then "https://demo-api.ig.com/"
-                        else "https://api.ig.com/"
+host isDemo = if isDemo then demoPath
+                        else productionPath
+
+productionPath :: Text
+productionPath = "https://api.ig.com/"
+
+demoPath :: Text
+demoPath = "https://demo-api.ig.com/"
 
 -- | Represents the different types of error response returned by the api. The
 -- definitions are lifted directly from https://labs.ig.com/rest-trading-api-reference/service-detail?id=534
