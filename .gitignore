@@ -19,5 +19,5 @@ cabal.sandbox.config
 .stack-work/
 cabal.project.local
 .HTF/
-# Credentials file. Do not persist in version control!
-config.json
+LoginScript.hs # A script that allows me to run the login sequence without typing it out every time
+
