@@ -1,23 +1,31 @@
 {-# LANGUAGE DeriveGeneric #-}
+{-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE OverloadedStrings #-}
+
 module IG.REST.Dealing.Types where
 
 import Data.Aeson
+import Data.Monoid
 import GHC.Generics
 import Data.Text (Text)
 import qualified Data.Text as Text
 import Data.Maybe
 import Data.Time
 
+
+utcDateTimeFormat :: String
+utcDateTimeFormat = iso8601DateFormat $ Just "%H:%M:%S%Q"
+
+
 -- | Represents the payload returned by a deal confirmation request to the API
-data DealConfirmation = DealConfirmation { date :: DealTime -- ^ Date and time of transaction
+data DealConfirmation = DealConfirmation { date :: UTCDate -- ^ Date and time of transaction
                                          , affectedDeals :: [Deal] -- ^ Affected Deals
                                          , dealId :: Text -- ^ Deal Identifier
                                          , dealReference :: Text -- ^ Deal Reference
                                          , dealStatus :: DealStatus -- ^ Deal status
                                          , direction :: Direction -- ^ Deal direction
                                          , epic :: Text -- ^ Instrument epic identifier
-                                         , expiry :: Text -- ^ Instrument expiry
+                                         , expiry :: InstrumentExpiry -- ^ Instrument expiry
                                          , guaranteedStop :: Bool -- ^ True if guaranteed stop
                                          , level :: Double -- ^ The level
                                          , limitDistance :: Maybe Double -- ^ Limit distance
@@ -36,7 +44,18 @@ data DealConfirmation = DealConfirmation { date :: DealTime -- ^ Date and time o
 
 instance FromJSON DealConfirmation
 
-                                                                                
+
+data UTCDate = UTCDate UTCTime
+             deriving (Show)
+
+
+instance FromJSON UTCDate where
+  parseJSON = withText "UTCDate" $ \d ->
+    return $ UTCDate . fromJust $ time ( Text.unpack d )
+    where time = parseTimeM True locale utcDateTimeFormat
+          locale = defaultTimeLocale
+
+
 -- | Represents a time point as returned by the API
 data DealTime = DealTime UTCTime 
               deriving (Show)
@@ -46,15 +65,12 @@ instance FromJSON DealTime where
 
   parseJSON = withText "DealTime" $ \t -> 
     return $ DealTime . fromJust $ time ( Text.unpack t )
-    where time = parseTimeM True locale format 
+    where time = parseTimeM True locale "%X" 
           locale = defaultTimeLocale
-          format = iso8601DateFormat $ Just ("%H:%M:%S%Q")
 
-
--- | Represents overview info on an account's deals. Note the use of apostrophes 
--- on the methods
-data Deal = Deal { dealId' :: String
-                 , status' :: Status
+-- | Represents overview info on an account's deals. 
+data Deal = Deal { dealId :: String
+                 , status :: Status
                  }
           deriving (Show, Generic)
 
@@ -93,6 +109,8 @@ data Direction = BUY
 
 instance FromJSON Direction
 
+
+instance ToJSON Direction
 
 -- | The reasons that a trade operation has succeeded or failed. 
 data StatusReason = ACCOUNT_NOT_ENABLED_TO_TRADING -- ^ The account is not enabled to trade
@@ -156,3 +174,216 @@ data StatusReason = ACCOUNT_NOT_ENABLED_TO_TRADING -- ^ The account is not enabl
                   deriving (Generic, Show)
 
 instance FromJSON StatusReason
+
+
+-- | Represents the information returned by the api for a single position following
+-- a call to deal/positions
+data PositionData = PositionData { position :: Position -- ^ Details of the position
+                                 , market :: Market -- ^ Details of the market it is in
+                                 } deriving (Generic, Show)
+
+instance FromJSON PositionData
+
+
+data Market = Market { bid :: Double -- ^ Bid
+                     , delayTime :: Double -- ^ Instrument price delay (minutes)
+                     , epic :: Text -- ^ Instrument epic identifier
+                     , expiry :: InstrumentExpiry -- ^ Instrument expiry period
+                     , high :: Double -- ^ High price
+                     , instrumentName :: Text -- ^ Instrument name
+                     , instrumentType :: InstrumentType -- ^ Instrument Type
+                     , lotSize :: Double -- ^ Instrument lot size
+                     , low :: Double -- ^ Low price
+                     , marketStatus :: MarketStatus -- ^ Describes the current status of a given market
+                     , netChange :: Double -- ^ Price net change
+                     , offer :: Double -- ^ Offer
+                     , percentageChange :: Double -- ^ Price percentage change
+                     , scalingFactor :: Double -- ^ multiplying factor to determine actual pip value for the levels used by the instrument
+                     , streamingPricesAvailable :: Bool -- ^ True if streaming prices are available, i.e. the market is tradeable and the client has appropriate permissions
+                     , updateTimeUTC :: DealTime -- ^ Time of last instrument price update
+                     } deriving (Show)
+
+
+instance FromJSON Market where
+  parseJSON = withObject "Market" $ \o -> do
+    bid <- o .: "bid"
+    dt  <- o .: "delayTime"
+    ep  <- o .: "epic"
+    ex  <- o .: "expiry"
+    hi  <- o .: "high"
+    inN <- o .: "instrumentName"
+    inT <- o .: "instrumentType"
+    ls  <- o .: "lotSize"
+    l   <- o .: "low"
+    mS  <- o .: "marketStatus"
+    nC  <- o .: "netChange"
+    off <- o .: "offer"
+    pC  <- o .: "percentageChange"
+    sF  <- o .: "scalingFactory"
+    sPA <- o .: "scalingFactor"
+    utc <- o .: "updateTimeUTC"
+    return $ Market bid dt ep ex hi inN inT ls l mS nC off pC sF sPA utc
+
+
+data MarketStatus = CLOSED
+                  | EDITS_ONLY
+                  | OFFLINE 
+                  | ON_AUCTION
+                  | ON_AUCTION_NO_EDITS
+                  | SUSPENDED
+                  | TRADEABLE
+                  deriving (Generic, Show)
+
+instance FromJSON MarketStatus
+
+data InstrumentType = BINARY -- ^ Binaries
+                    | BUNGEE_CAPPED -- ^ Capped bungees
+                    | BUNGEE_COMMODITIES -- ^ Commodity bungees
+                    | BUNGEE_CURRENCIES -- ^ Currency bungees
+                    | BUNGEE_INDICES -- ^ Index bungees
+                    | COMMODITIES -- ^ Commodities
+                    | CURRENCIES -- ^ Currencies
+                    | INDICES -- ^ Indices
+                    | OPT_COMMODITIES -- ^ Commodity options
+                    | OPT_CURRENCIES -- ^ Currency options
+                    | OPT_INDICES -- ^ Index options
+                    | OPT_RATES -- ^ FX Options
+                    | OPT_SHARES -- ^ Share options
+                    | RATES -- ^ Rates
+                    | SECTORS -- ^ Sectors
+                    | SHARES -- ^ Shares
+                    | SPRINT_MARKET -- ^ Sprint Market
+                    | TEST_MARKET -- ^ Test market
+                    | UNKNOWN_INSTRUMENT_TYPE -- ^ Unknown
+                    deriving (Generic, Show)
+
+instance FromJSON InstrumentType where
+
+  parseJSON = withText "InstrumentType" $ \t -> 
+    case t of
+         "BUNGEE_CAPPED" ->       return BUNGEE_CAPPED 
+         "BUNGEE_COMMODITIES" ->  return BUNGEE_COMMODITIES 
+         "BUNGEE_CURRENCIES" ->   return BUNGEE_CURRENCIES 
+         "BUNGEE_INDICES" ->      return BUNGEE_INDICES 
+         "COMMODITIES" ->         return COMMODITIES 
+         "CURRENCIES" ->          return CURRENCIES 
+         "INDICES" ->             return INDICES 
+         "OPT_COMMODITIES" ->     return OPT_COMMODITIES 
+         "OPT_CURRENCIES" ->      return OPT_CURRENCIES 
+         "OPT_INDICES" ->         return OPT_INDICES 
+         "OPT_RATES" ->           return OPT_RATES 
+         "OPT_SHARES" ->          return OPT_SHARES
+         "RATES" ->               return RATES 
+         "SECTORS" ->             return SECTORS 
+         "SHARES" ->              return SHARES 
+         "SPRINT_MARKET" ->       return SPRINT_MARKET 
+         "TEST_MARKET" ->         return TEST_MARKET 
+         "UNKNOWN" ->             return UNKNOWN_INSTRUMENT_TYPE
+         
+-- ^ Data on a position. 
+data Position = Position { contractSize :: Double -- ^ Size of the contract
+                         , controlledRisk :: Bool -- ^ True if position is risk controlled
+                         , createdDateUTC :: UTCDate -- ^ Date the position was opened
+                         , currency :: Text -- ^ Position currency ISO code
+                         , dealId :: Text -- ^ Deal identifier
+                         , dealReference :: Text -- ^ Deal reference
+                         , direction :: Direction -- ^ Deal direction
+                         , level :: Double -- ^ Level at which position was opened
+                         , limitLevel :: Maybe Double -- ^ Limit Level
+                         , size :: Double -- ^ Deal size
+                         , stopLevel :: Double -- ^ Stop level
+                         , trailingStep :: Maybe Double -- ^ Trailing step size
+                         , trailingStopDistance :: Maybe Double -- ^ Trailing stop distance
+                         } deriving (Generic, Show)
+
+instance FromJSON Position
+
+
+-- ^ Represents the payload that is sent over when a position is created
+data PositionRequest = PositionRequest { currencyCode :: Maybe Text
+                                       , dealReference :: Maybe Text
+                                       , direction :: Direction
+                                       , epic :: Text
+                                       , expiry :: InstrumentExpiry
+                                       , forceOpen :: Bool
+                                       , guaranteedStop :: Bool
+                                       , level :: Maybe Double
+                                       , limitDistance :: Maybe Double
+                                       , limitLevel :: Maybe Double
+                                       , orderType :: OrderType
+                                       , quoteId :: Maybe Text
+                                       , size :: Double
+                                       , stopLevel :: Maybe Double
+                                       , timeInForce :: TimeInForce
+                                       , trailingStop :: Bool
+                                       , trailingStopIncrement :: Maybe Double
+                                       } deriving (Show, Generic)
+
+instance ToJSON PositionRequest
+
+instance FromJSON PositionRequest
+
+
+-- ^ Specifies the expiry of the instrument which you wish to purchase. The date
+-- (and sometimes time) at which a spreadbet or CFD will automatically close 
+-- against some predefined market value should the bet remain open beyond its 
+-- last dealing time. Some CFDs do not expire, and have an expiry of '-'. eg 
+-- DEC-14, or DFB for daily funded bets
+data InstrumentExpiry = DFB
+                      | None
+                      | Expires Text Text
+                      deriving (Show)
+
+instance ToJSON InstrumentExpiry where
+
+  toJSON (Expires m d) = String $ m <> "-" <> d
+  toJSON None = String "-"
+  toJSON x = String . Text.pack . show $ x
+
+instance FromJSON InstrumentExpiry where
+
+  parseJSON = withText "InstrumentExpiry" $ \t -> 
+    case t of
+         "DFB" -> return DFB
+         "-"   -> return None
+         ie    -> do 
+                  let expiryParts = Text.splitOn "-" ie
+                  case expiryParts of
+                       [] -> fail "No expiry data provided"
+                       (month:year:_) -> return $ Expires month year
+                       (x:_) -> fail . Text.unpack $ "Only one part of expiry data provided: " <> x
+
+
+data TimeInForce = FILL_OR_KILL
+                 | EXECUTE_AND_ELIMINATE
+                 deriving (Show, Generic)
+
+instance ToJSON TimeInForce
+
+instance FromJSON TimeInForce
+
+
+-- | Describes the order level model to be used for a position operation
+data OrderType = LIMIT  -- ^ Limit orders get executed at the price seen by IG at
+                        -- the moment of booking a trade
+                        -- A limit determines the level at which the order or the
+                        -- remainder of the order will be rejected
+               | MARKET -- ^ Market orders get executed at the price seen by
+                        -- IG at the time of booking the trade. A level cannot
+                        -- be specified. Not applicable to BINARY instruments.
+               | QUOTE  -- ^ Quote orders get executed at the specified level. 
+                        -- The level has to be accompanied by a valid quote id.
+                        -- This type is only available subject to agreement with
+                        -- IG.
+               deriving (Generic, Show)
+
+instance ToJSON OrderType
+
+instance FromJSON OrderType
+
+
+data DealReference = DealReference { dealReference :: Text
+                                   } deriving (Generic, Show)
+
+instance FromJSON DealReference
+

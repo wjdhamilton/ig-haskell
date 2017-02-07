@@ -5,8 +5,11 @@ module IG.REST where
 import Control.Lens
 import Data.Aeson
 import Data.Aeson.Lens
-import Data.Text
+import Data.ByteString.Lazy as BL
+import Data.Monoid
+import Data.Text as Text
 import Data.Text.Encoding as TE
+import IG
 import Network.HTTP.Client.TLS (tlsManagerSettings)
 import Network.HTTP.Types hiding (statusCode)
 import Network.Wreq
@@ -35,3 +38,18 @@ baseHeaders v key = defaults & header "Accept" .~ ["application/json"]
                              & header "X-IG-API-KEY" .~ [TE.encodeUtf8 key]
                              & manager .~ Left (tlsManagerSettings)
                              & checkStatus .~ (Just $ \_ _ _  -> Nothing)
+
+
+-- | Takes an IO call to the API and returns an instance of Either containing
+-- of Left ApiError or Right TheRequestedType
+apiRequest :: (FromJSON a) => IO (Response BL.ByteString) -> IO (Either ApiError a)
+apiRequest request = do
+  response <- request
+  let body = response ^. responseBody
+  case response ^. responseStatus ^. statusCode of
+       200 -> do
+         case eitherDecode body of
+              Left e -> return $ Left (UnknownError $ Text.pack e)
+              Right r -> return $ Right r
+
+       _ -> do return $ Left (decodeError body)

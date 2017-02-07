@@ -1,4 +1,3 @@
-{-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE OverloadedStrings #-}
 -- | Functions for sending requests to the Dealing endpoint of the API
 module IG.REST.Dealing where
@@ -23,21 +22,16 @@ confirms :: AuthHeaders -> Text -> IO (Either ApiError DealConfirmation)
 confirms a@(AuthHeaders _ _ _ isLogin) ref = do
   let opts = buildHeaders "1" a
   let url = Text.unpack $ host isLogin <> confirmPath <> "/" <> ref
-  confirmation <- getWith opts url
-  let body = confirmation ^. responseBody
-  case confirmation ^. responseStatus ^. statusCode of
-       200 -> do
-         case eitherDecode body of
-              Left e -> return $ Left (UnknownError $ Text.pack e)
-              Right dealConf -> return $ Right dealConf
-
-       404 -> return $ Left DealNotFound
-       _ -> do
-         return $ Left (decodeError body)
+  apiRequest (getWith opts url)
          
   
 -- | Return all open positions for the active account
-allPositions a@(AuthHeaders _ _ isLogin _) = undefined
+allPositions :: AuthHeaders -> IO (Either ApiError [PositionData])
+allPositions a@(AuthHeaders _ _ _ isLogin) = do
+  let opts = buildHeaders "2" a
+  let positionsPath = "positions"
+  let url = Text.unpack $ host isLogin <> positionsPath
+  apiRequest $ getWith opts url
 
 
 -- | Return an open position for the active account by deal identifier
@@ -50,7 +44,12 @@ closePositions a@(AuthHeaders _ _ isLogin _) = undefined
 
 -- | Create a new position. The outcome of this action needs is ascertained using
 -- @confirms
-createPosition a@(AuthHeaders _ _ isLogin _) = undefined
+createPosition :: AuthHeaders -> PositionRequest -> IO (Either ApiError DealReference)
+createPosition a@(AuthHeaders _ _ _ isLogin ) positionRequest = do
+  let opts = buildHeaders "2" a
+  let otcPath = "/positions/otc"
+  let url = Text.unpack $ host isLogin <> otcPath
+  apiRequest $ postWith opts url (toJSON positionRequest)
 
 
 -- | Update an open position

@@ -4,7 +4,7 @@
 
 module IG.REST.Login where
 
-import Control.Lens
+import Control.Lens hiding ((.=))
 import Data.Aeson
 import Data.Aeson.Lens
 import qualified Data.ByteString.Char8 as BS
@@ -216,14 +216,18 @@ sessionDetails a@(AuthHeaders _ _ _ isLogin) = do
 -- Data required for a switchAccount request
 data SwitchAccountData = SwitchAccountData Text Bool deriving (Generic, Show)
 
-instance ToJSON SwitchAccountData
+instance ToJSON SwitchAccountData where
+  toJSON (SwitchAccountData accId preferred) = 
+    object [ "id" .= accId
+           , "preferred" .= preferred
+           ]
 
 
 -- | Switch to a different user account. Untested as of 26/01/2016 since 403
 -- error was constantly returned by the Api Companion when testing
 switchAccount :: AuthHeaders -> Text -> Bool -> IO Bool
 switchAccount a@(AuthHeaders _ _ _ isLogin) id isDefault = do
-  let payload = SwitchAccountData id isDefault
+  let payload = toJSON $ SwitchAccountData id isDefault
   let opts = buildHeaders "1" a
   r <- putWith opts (unpack $ host isLogin <> restPath) payload
   case r ^. responseStatus ^. statusCode of
