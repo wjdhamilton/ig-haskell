@@ -45,6 +45,7 @@ data ApiError = AccountDisabled -- ^ The user's preferred account is disabled.
               | InvalidAccountToken -- ^  The service requires an account token and the one provided was not valid
               | InvalidApiKey -- ^ The provided api key was not valid for the requesting account
               | InvalidClientToken -- ^ The service requires a client token and the one provided was not valid
+              | InvalidDetails -- ^ User has supplied invalid login details
               | InvalidDateRange -- ^ Invalid date range
               | InvalidInput -- ^ A generic input data error has occurred
               | InvalidOAuthToken -- ^ Invalid OAuth access token (OAuth is not 
@@ -111,3 +112,4 @@ errorMap = empty
              |> insert "error.security.api-key-revoked" ApiKeyRevoked
              |> insert "error.security.get.session.timeout" SessionTimeout
              |> insert "error.confirms.deal-not-found" DealNotFound
+             |> insert "error.security.invalid-details" InvalidDetails

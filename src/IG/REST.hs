@@ -23,7 +23,7 @@ data AuthHeaders = AuthHeaders {
                                , securityToken :: Text
                                , apiToken :: Text
                                , isDemo :: Bool
-                               } deriving (Show)
+                               } deriving (Eq, Show)
 
 buildHeaders :: Text -> AuthHeaders -> Options
 buildHeaders version (AuthHeaders c x k _) = 

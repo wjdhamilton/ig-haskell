@@ -31,13 +31,15 @@ import Network.Wreq
 -- in.
 data LoginResponse = LoginResponse { 
                                    -- | AccountInfo object
-                                   accountInfo :: AccountInfo
+                                     accountInfo :: AccountInfo
                                    -- | Account type
                                    , accountType :: AccountType
                                    -- | Array of details for each user account
                                    , accounts :: [AccountDetails]
                                    -- | Client Identifier
                                    , clientId :: Text
+                                   -- | Id of account in use
+                                   , currentAccountId :: Text
                                    -- | Account Currency
                                    , currencyIsoCode :: Text
                                    -- | Account currency symbol
@@ -56,7 +58,7 @@ data LoginResponse = LoginResponse {
                                    , timezoneOffset :: Integer
                                    -- | True if client can use trailing stops
                                    , trailingStopsEnabled :: Bool
-                                   } deriving (Generic, Show)
+                                   } deriving (Eq, Generic, Show)
 
 instance FromJSON LoginResponse
 
@@ -71,7 +73,7 @@ data AccountInfo = AccountInfo {
                                , deposit :: Scientific
                                -- | Account profit and loss
                                , profitLoss :: Scientific
-                               } deriving (Show, Generic)
+                               } deriving (Eq, Generic, Show)
 
 
 instance FromJSON AccountInfo
@@ -80,7 +82,7 @@ instance FromJSON AccountInfo
 data AccountType = CFD
                  | PHYSICAL
                  | SPREADBET
-                 deriving (Show, Generic)
+                 deriving (Eq, Generic, Show)
                                   
 
 instance FromJSON AccountType
@@ -96,7 +98,7 @@ data AccountDetails = AccountDetails {
                                      , accountType' :: AccountType
                                      -- | Indicates where or not this is the preferred account
                                      , preferred :: Bool
-                                     } deriving (Show, Generic)
+                                     } deriving (Eq, Generic, Show)
 
 instance FromJSON AccountDetails where
 
@@ -113,7 +115,7 @@ data ReroutingEnvironment = DEMO
                           | LIVE
                           | TEST
                           | UAT
-                          deriving (Show, Generic)
+                          deriving (Eq, Generic, Show)
 
 instance FromJSON ReroutingEnvironment
 
@@ -122,10 +124,10 @@ data LoginBody = LoginBody {
                            -- | Whether or not the password has been encrypted
                              encryptedPassword :: Bool
                            -- | Client login identifier (username)
-                           , identifier :: String
+                           , identifier :: Text
                            -- | The client password
-                           , password :: String
-                           } deriving (Show, Generic)
+                           , password :: Text
+                           } deriving (Eq, Generic, Show)
 
 instance ToJSON LoginBody
 
@@ -184,7 +186,7 @@ data SessionDetails = SessionDetails { clientId' :: Text
                                      , locale' :: Text
                                      , currency' :: Text
                                      , lightstreamerEndpoint' :: Text
-                                     } deriving (Generic, Show)
+                                     } deriving (Eq, Generic, Show)
 
 instance FromJSON SessionDetails where
 
@@ -214,25 +216,25 @@ sessionDetails a@(AuthHeaders _ _ _ isLogin) = do
 
 
 -- Data required for a switchAccount request
-data SwitchAccountData = SwitchAccountData Text Bool deriving (Generic, Show)
+data SwitchAccountData = SwitchAccountData Text Bool deriving (Eq, Generic, Show)
 
 instance ToJSON SwitchAccountData where
-  toJSON (SwitchAccountData accId preferred) = 
-    object [ "id" .= accId
-           , "preferred" .= preferred
+  toJSON (SwitchAccountData accId defaultAccount) = 
+    object [ "accountId" .= accId
+           , "defaultAccount" .= defaultAccount
            ]
 
 
 -- | Switch to a different user account. Untested as of 26/01/2016 since 403
 -- error was constantly returned by the Api Companion when testing
-switchAccount :: AuthHeaders -> Text -> Bool -> IO Bool
+switchAccount :: AuthHeaders -> Text -> Bool -> IO (Either String ())
 switchAccount a@(AuthHeaders _ _ _ isLogin) id isDefault = do
   let payload = toJSON $ SwitchAccountData id isDefault
   let opts = buildHeaders "1" a
   r <- putWith opts (unpack $ host isLogin <> restPath) payload
   case r ^. responseStatus ^. statusCode of
-       200 -> return $ True
-       _   -> return $ False
+       200 -> return $ Right ()
+       _   -> apiError r Map.empty 
 
 
 accountsPath :: Bool -> String
