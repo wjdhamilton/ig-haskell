@@ -1,5 +1,4 @@
 {-# LANGUAGE DeriveGeneric #-}
-{-# LANGUAGE OverloadedStrings #-}
 -- | Functions for working with the Login Endpoint.
 
 module IG.REST.Login where

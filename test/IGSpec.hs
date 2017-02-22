@@ -85,6 +85,7 @@ decodeErrorSpec = mapM_ toErrorSpec errors
                  , ("error.security.get.session.timeout",  SessionTimeout)
                  , ("error.confirms.deal-not-found",  DealNotFound)
                  , ("Unknown error", UnknownError . errorBody $ "Unknown error")
+                 , ("validation.null-not-allowed.request.currencyCode", CurrencyCodeRequired)
                  ]
 
 

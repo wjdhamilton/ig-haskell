@@ -1,4 +1,3 @@
-{-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE DeriveGeneric #-}
 module IG where
 
@@ -37,6 +36,7 @@ data ApiError = AccountDisabled -- ^ The user's preferred account is disabled.
               | ApiKeyRevoked -- ^ The provided api key was not accepted because it has been revoked
               | ApiKeyUnaccepted -- ^ The provided api key was unaccepted. 
               | CannotUseApi -- ^ The account is not allowed to log into public API. Please use the web platform.
+              | CurrencyCodeRequired -- ^ The currency code field was null or missing and is required
               | CredentialsMissing -- ^ The user has not provided all required security credentials
               | DealNotFound -- ^ The referenced deal could not be found
               | DisabledApiKey -- ^ The provided api key was not accepted because it is not currently enabled
@@ -113,3 +113,4 @@ errorMap = empty
              |> insert "error.security.get.session.timeout" SessionTimeout
              |> insert "error.confirms.deal-not-found" DealNotFound
              |> insert "error.security.invalid-details" InvalidDetails
+             |> insert "validation.null-not-allowed.request.currencyCode" CurrencyCodeRequired

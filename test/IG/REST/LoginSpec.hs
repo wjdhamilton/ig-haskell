@@ -14,6 +14,7 @@ import IG.REST.Login
 import System.IO
 import System.Directory
 import Test.Hspec
+import Tools
 
 spec :: Spec
 spec = do
@@ -39,16 +40,6 @@ loginSpec = do
       login True apiKey loginDetails `shouldThrow` (errorCall . show $ InvalidDetails)
 
 
-getCredentials :: IO (Text, LoginBody)
-getCredentials = do
-  creds <- readFile "test/config.json"
-  let apiKey = getApiKey creds
-  let identifier = fromJust $ creds ^? key "username" . _String
-  let password = fromJust $ creds ^? key "password" . _String
-  let loginDetails = LoginBody False identifier password
-  return $ (apiKey, loginDetails)
-
-
 getBadCredentials :: IO (Text, LoginBody)
 getBadCredentials = do
   creds <- readFile "test/config.json"
@@ -57,10 +48,6 @@ getBadCredentials = do
   let password = "bad"
   let loginDetails = LoginBody False username password
   return $ (apiKey, loginDetails)
-
-
-getApiKey :: String -> Text
-getApiKey creds = fromJust $ creds ^? key "apiKey" . _String
 
 
 logoutSpec :: Spec
@@ -83,9 +70,4 @@ switchAccountSpec = do
     it "should succeed" $ do
       switchAccount headers (head otherAccounts) False `shouldReturn` Right ()
   
-
-loginToApi = do
-    (apiKey, loginDetails) <- runIO getCredentials
-    response <- runIO $ login True apiKey loginDetails
-    return $ fromRight response
 

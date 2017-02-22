@@ -1,5 +1,3 @@
-{-# LANGUAGE OverloadedStrings #-}
-
 module IG.REST where
 
 import Control.Lens
@@ -13,6 +11,9 @@ import IG
 import Network.HTTP.Client.TLS (tlsManagerSettings)
 import Network.HTTP.Types hiding (statusCode)
 import Network.Wreq
+
+restPathSegment :: Text
+restPathSegment = "gateway/deal/"
 
 -- | Encapsulates the Client Security Token and Account Session access token. 
 -- These are both required for accessing the api and are acquired using @login
@@ -32,7 +33,7 @@ buildHeaders version (AuthHeaders c x k _) =
 
 
 baseHeaders :: Text -> Text -> Options
-baseHeaders v key = defaults & header "Accept" .~ ["application/json"]
+baseHeaders v key = defaults & header "Accept" .~ ["application/json", "charset=UTF-8"]
                              & header "Content-Type" .~ [ "application/json" ]
                              & header "Version" .~ [ TE.encodeUtf8 v ]
                              & header "X-IG-API-KEY" .~ [TE.encodeUtf8 key]

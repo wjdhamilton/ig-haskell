@@ -15,19 +15,17 @@ cabal-version:       >=1.10
 
 library
   hs-source-dirs:      src
-                     , testScripts
   exposed-modules:     IG
                      , IG.REST
                      , IG.REST.Login
                      , IG.REST.Dealing
                      , IG.REST.Dealing.Types
-                     -- All lines below this to be removed for production
-                     , LoginScript
   build-depends:       base >= 4.7 && < 5
                      , aeson
                      , bytestring
                      , containers
                      , flow
+                     , http-client
                      , http-client-tls
                      , http-types
                      , lens
@@ -39,6 +37,8 @@ library
                      , unordered-containers
                      , wreq
   default-language:    Haskell2010
+  default-extensions:  OverloadedStrings
+                     , DuplicateRecordFields
 
 test-suite ig-haskell-test
   type:                exitcode-stdio-1.0
@@ -50,6 +50,7 @@ test-suite ig-haskell-test
                      , containers
                      , directory
                      , either-unwrap
+                     , flow
                      , ig-haskell
                      , hspec
                      , hspec-core
@@ -58,8 +59,11 @@ test-suite ig-haskell-test
                      , lens
                      , lens-aeson
                      , text
+  other-modules:     Tools
   ghc-options:         -threaded -rtsopts -with-rtsopts=-N
   default-language:    Haskell2010
+  extensions:          OverloadedStrings
+                     , DuplicateRecordFields
 
 source-repository head
   type:     git

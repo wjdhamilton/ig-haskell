@@ -1,6 +1,4 @@
 {-# LANGUAGE DeriveGeneric #-}
-{-# LANGUAGE DuplicateRecordFields #-}
-{-# LANGUAGE OverloadedStrings #-}
 
 module IG.REST.Dealing.Types where
 
@@ -27,7 +25,7 @@ data DealConfirmation = DealConfirmation { date :: UTCDate -- ^ Date and time of
                                          , epic :: Text -- ^ Instrument epic identifier
                                          , expiry :: InstrumentExpiry -- ^ Instrument expiry
                                          , guaranteedStop :: Bool -- ^ True if guaranteed stop
-                                         , level :: Double -- ^ The level
+                                         , level :: Maybe Double -- ^ The level
                                          , limitDistance :: Maybe Double -- ^ Limit distance
                                          , limitLevel :: Maybe Double -- ^ The limit level
                                          , profit :: Maybe Double -- ^ Profit
@@ -105,7 +103,7 @@ instance FromJSON Status
 -- = bearish. I'm sure you get the picture. 
 data Direction = BUY
                | SELL
-               deriving (Generic, Show)
+               deriving (Eq, Generic, Show)
 
 instance FromJSON Direction
 
@@ -219,8 +217,8 @@ instance FromJSON Market where
     nC  <- o .: "netChange"
     off <- o .: "offer"
     pC  <- o .: "percentageChange"
-    sF  <- o .: "scalingFactory"
-    sPA <- o .: "scalingFactor"
+    sF  <- o .: "scalingFactor"
+    sPA <- o .: "streamingPricesAvailable"
     utc <- o .: "updateTimeUTC"
     return $ Market bid dt ep ex hi inN inT ls l mS nC off pC sF sPA utc
 
@@ -300,7 +298,7 @@ instance FromJSON Position
 
 
 -- ^ Represents the payload that is sent over when a position is created
-data PositionRequest = PositionRequest { currencyCode :: Maybe Text
+data PositionRequest = PositionRequest { currencyCode :: Text
                                        , dealReference :: Maybe Text
                                        , direction :: Direction
                                        , epic :: Text
@@ -387,3 +385,48 @@ data DealReference = DealReference { dealReference :: Text
 
 instance FromJSON DealReference
 
+
+data PositionsResponse = PositionsResponse { positions :: [PositionData] 
+                                           } deriving (Generic, Show)
+
+instance FromJSON PositionsResponse
+
+
+data ClosePositionRequest 
+  = ClosePositionRequest { dealId :: Text -- ^ The dealId of the position to be closed
+                         , epic :: Maybe Text
+                         , expiry :: Maybe InstrumentExpiry
+                         , direction :: Direction
+                         , level :: Maybe Double
+                         , orderType :: OrderType
+                         , timeInForce :: Maybe TimeInForce
+                         , quoteId :: Maybe Text
+                         , size :: Double
+                         } deriving (Generic, Show)
+
+instance ToJSON ClosePositionRequest
+                         
+
+-- | Defines the options that can be set when closing a deal. CloseOptions is designed
+-- to work in conjunction with PositionData when closePosition is applied to them
+-- such that the library copies the data from the correct sources. 
+data CloseOptions = CloseOptions { level :: Maybe Double
+                                 , orderType :: OrderType
+                                 , timeInForce :: Maybe TimeInForce
+                                 , quoteId :: Maybe Text
+                                 , size :: Maybe Double
+                                 , expiry :: Maybe InstrumentExpiry
+                                 , epic :: Maybe Text
+                                 } 
+
+
+-- | Options for payload used in updating a position. The API only allows the 
+-- updating of stop and limit levels
+data PositionUpdateRequest = PositionUpdateRequest { limitLevel :: Maybe Double
+                                                   , stopLevel :: Maybe Double
+                                                   , trailingStop :: Maybe Bool
+                                                   , trailingStopDistance :: Maybe Double
+                                                   , trailingStopIncrement :: Maybe Double
+                                                   } deriving (Generic, Show)
+
+instance ToJSON PositionUpdateRequest
