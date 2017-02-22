@@ -112,7 +112,5 @@ updatePositionSpec headers =
                          let l = level (p :: Position)
                          let stopLevel = Just $ l - 10
                          let updateOpts = PositionUpdateRequest Nothing stopLevel (Just False) Nothing Nothing
-                         print updateOpts
                          response <- updatePosition headers id updateOpts
-                         print response
                          isRight response `shouldBe` True
