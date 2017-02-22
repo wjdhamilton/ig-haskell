@@ -1,4 +1,3 @@
-{-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE DeriveGeneric #-}
 module IG where
 
@@ -19,8 +18,14 @@ import Text.Regex.PCRE hiding (empty)
 -- | Returns the host url of the IG API server. 
 host :: Bool -- ^ If True then the demo address is returned, production otherwise
      -> Text -- ^ The host url
-host isDemo = if isDemo then "https://demo-api.ig.com/"
-                        else "https://api.ig.com/"
+host isDemo = if isDemo then demoPath
+                        else productionPath
+
+productionPath :: Text
+productionPath = "https://api.ig.com/"
+
+demoPath :: Text
+demoPath = "https://demo-api.ig.com/"
 
 -- | Represents the different types of error response returned by the api. The
 -- definitions are lifted directly from https://labs.ig.com/rest-trading-api-reference/service-detail?id=534
@@ -31,6 +36,7 @@ data ApiError = AccountDisabled -- ^ The user's preferred account is disabled.
               | ApiKeyRevoked -- ^ The provided api key was not accepted because it has been revoked
               | ApiKeyUnaccepted -- ^ The provided api key was unaccepted. 
               | CannotUseApi -- ^ The account is not allowed to log into public API. Please use the web platform.
+              | CurrencyCodeRequired -- ^ The currency code field was null or missing and is required
               | CredentialsMissing -- ^ The user has not provided all required security credentials
               | DealNotFound -- ^ The referenced deal could not be found
               | DisabledApiKey -- ^ The provided api key was not accepted because it is not currently enabled
@@ -39,6 +45,7 @@ data ApiError = AccountDisabled -- ^ The user's preferred account is disabled.
               | InvalidAccountToken -- ^  The service requires an account token and the one provided was not valid
               | InvalidApiKey -- ^ The provided api key was not valid for the requesting account
               | InvalidClientToken -- ^ The service requires a client token and the one provided was not valid
+              | InvalidDetails -- ^ User has supplied invalid login details
               | InvalidDateRange -- ^ Invalid date range
               | InvalidInput -- ^ A generic input data error has occurred
               | InvalidOAuthToken -- ^ Invalid OAuth access token (OAuth is not 
@@ -105,3 +112,5 @@ errorMap = empty
              |> insert "error.security.api-key-revoked" ApiKeyRevoked
              |> insert "error.security.get.session.timeout" SessionTimeout
              |> insert "error.confirms.deal-not-found" DealNotFound
+             |> insert "error.security.invalid-details" InvalidDetails
+             |> insert "validation.null-not-allowed.request.currencyCode" CurrencyCodeRequired

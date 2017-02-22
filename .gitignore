@@ -19,5 +19,4 @@ cabal.sandbox.config
 .stack-work/
 cabal.project.local
 .HTF/
-LoginScript.hs # A script that allows me to run the login sequence without typing it out every time
-
+config.json
