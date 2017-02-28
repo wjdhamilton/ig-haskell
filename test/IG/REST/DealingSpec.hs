@@ -1,5 +1,7 @@
 module IG.REST.DealingSpec (spec) where
 
+import Control.Monad.Trans
+import Control.Monad.Trans.Either
 import Data.Either
 import Data.Monoid
 import Flow
@@ -79,46 +81,36 @@ allPositionsSpec headers =
 closePositionSpec :: AuthHeaders -> Spec
 closePositionSpec headers =
   it "should close a position correctly" $ do
-    dealRef <- createPosition headers minimalPositionRequest
-    case dealRef of
-         Left e -> error $ show e
-         Right ref -> do
-           confirmation <- confirms headers ref
-           case confirmation of
-                Left e -> error $ show e
-                Right conf -> do
-                  let id = dealId (conf :: DealConfirmation)
-                  position <- positionDetails headers id
-                  case position of
-                       Left e -> error $ show e
-                       Right pos -> do
-                         let opts = CloseOptions Nothing MARKET Nothing Nothing Nothing Nothing Nothing
-                         closeRef <- closePosition headers pos opts 
-                         isRight closeRef `shouldBe` True
+    closeRef <- runEitherT $ do
+      eDealRef <- lift $ createPosition headers minimalPositionRequest
+      ref <- hoistEither eDealRef
+      confirmation <- lift $ confirms headers ref
+      conf <- hoistEither confirmation
+      let id = dealId (conf :: DealConfirmation)
+      position <- lift $ positionDetails headers id
+      pos <- hoistEither position
+      let opts = CloseOptions Nothing MARKET Nothing Nothing Nothing Nothing Nothing
+      lift $ closePosition headers pos opts 
+    isRight closeRef `shouldBe` True
 
 
 updatePositionSpec :: AuthHeaders -> Spec
 updatePositionSpec headers = 
   it "should update the position correctly" $ do
-    dealRef <- createPosition headers minimalPositionRequest
-    case dealRef of
-         Left e -> error $ show e
-         Right ref -> do
-           confirmation <- confirms headers ref
-           case confirmation of
-                Left e -> error $ show e
-                Right conf -> do
-                  let id = dealId (conf :: DealConfirmation)
-                  ePos <- positionDetails headers id
-                  case ePos of 
-                       Left e -> error $ show e
-                       Right pos -> do
-                         let p = position (pos :: PositionData)
-                         let l = level (p :: Position)
-                         let stopLevel = Just $ l - 10
-                         let updateOpts = PositionUpdateRequest Nothing stopLevel (Just False) Nothing Nothing
-                         response <- updatePosition headers id updateOpts
-                         isRight response `shouldBe` True
+    response <- runEitherT $ do
+      eDealRef <- lift $ createPosition headers minimalPositionRequest
+      dealRef <- hoistEither eDealRef
+      eConf <- lift $ confirms headers dealRef
+      confirmation <- hoistEither eConf
+      let id = dealId (confirmation :: DealConfirmation)
+      ePos <- lift $ positionDetails headers id
+      pos <- hoistEither ePos
+      let p = position (pos :: PositionData)
+      let l = level (p :: Position)
+      let stopLevel = Just $ l - 10
+      let updateOpts = PositionUpdateRequest Nothing stopLevel (Just False) Nothing Nothing
+      lift $ updatePosition headers id updateOpts
+    isRight response `shouldBe` True
 
 
 
