@@ -354,6 +354,8 @@ instance FromJSON InstrumentExpiry where
 
 data TimeInForce = FILL_OR_KILL
                  | EXECUTE_AND_ELIMINATE
+                 | GOOD_TILL_CANCELLED -- ^ applies to working orders only
+                 | GOOD_TILL_DATE -- ^ applies to working orders only
                  deriving (Show, Generic)
 
 instance ToJSON TimeInForce
@@ -373,6 +375,7 @@ data OrderType = LIMIT  -- ^ Limit orders get executed at the price seen by IG a
                         -- The level has to be accompanied by a valid quote id.
                         -- This type is only available subject to agreement with
                         -- IG.
+               | STOP   -- ^ A Stop order. Only appears in api docs under working orders
                deriving (Generic, Show)
 
 instance ToJSON OrderType
@@ -430,3 +433,39 @@ data PositionUpdateRequest = PositionUpdateRequest { limitLevel :: Maybe Double
                                                    } deriving (Generic, Show)
 
 instance ToJSON PositionUpdateRequest
+
+
+-- | Represents the payload returned by a call to the otc/workingorders endpoint
+data WorkingOrderData = WorkingOrderData { marketData :: Market
+                                         , workingOrderData :: WorkingOrder
+                                         } deriving (Generic, Show)
+
+instance FromJSON WorkingOrderData
+
+
+data WorkingOrdersResponse = WorkingOrdersResponse { workingOrders :: [WorkingOrderData]
+                                                   } deriving (Generic, Show)
+
+
+instance FromJSON WorkingOrdersResponse
+
+-- | The details of a working order
+data WorkingOrder = WorkingOrder { createdDateUTC :: UTCDate
+                                 , currencyCode :: Text
+                                 , dealId :: String
+                                 , direction :: Direction
+                                 , dma :: Bool
+                                 , epic :: Text
+                                 , goodTillDateISO :: UTCDate -- ? The ISO suggests this might not be utc
+                                 , guaranteedStop :: Bool
+                                 , limitDistance :: Maybe Double
+                                 , orderLevel :: Double
+                                 , orderSize :: Double
+                                 , orderType :: OrderType
+                                 , stopDistance :: Maybe Double
+                                 , timeInForce :: TimeInForce
+                                 } deriving (Generic, Show)
+
+instance FromJSON WorkingOrder
+
+

@@ -16,14 +16,19 @@ import Tools
 -- Use it
 -- Close it
 spec :: Spec
-spec = do 
+spec = do
   (headers, loginResponse) <- loginToApi
-  describe "createPosition" $ createPositionSpec headers
-  describe "confirms" $ confirmsSpec headers
-  describe "allPositions" $ allPositionsSpec headers
-  describe "closePosition" $ closePositionSpec headers
-  describe "updatePosition" $ updatePositionSpec headers
+  afterAll_ (closeAll headers) (descriptions headers)
 
+
+descriptions :: AuthHeaders -> Spec
+descriptions headers = do
+  describe "createPosition" $ createPositionSpec headers
+  describe "confirms"       $ confirmsSpec headers
+  describe "allPositions"   $ allPositionsSpec headers
+  describe "closePosition"  $ closePositionSpec headers
+  describe "updatePosition" $ updatePositionSpec headers
+  describe "workingOrders"  $ workingOrdersSpec headers
 
 createPositionSpec :: AuthHeaders -> Spec
 createPositionSpec headers = 
@@ -114,3 +119,27 @@ updatePositionSpec headers =
                          let updateOpts = PositionUpdateRequest Nothing stopLevel (Just False) Nothing Nothing
                          response <- updatePosition headers id updateOpts
                          isRight response `shouldBe` True
+
+
+
+workingOrdersSpec :: AuthHeaders -> Spec 
+workingOrdersSpec headers = 
+  it "should download all the working orders" $ do
+    orders <- getWorkingOrders headers
+    isRight orders `shouldBe` True
+
+
+closeAll :: AuthHeaders -> IO ()
+closeAll h = do
+  eOpenPositions <- allPositions h
+  case eOpenPositions of
+       Left e -> print e
+       Right openPositions -> do
+         let posits = positions openPositions
+         mapM (closeRequest h) posits
+         return ()
+
+
+closeRequest :: AuthHeaders -> PositionData -> IO (Either ApiError DealReference)
+closeRequest h pos = closePosition h pos options
+  where options = CloseOptions Nothing MARKET Nothing Nothing Nothing Nothing Nothing
