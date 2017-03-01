@@ -1,3 +1,6 @@
+-- | Tests the dealing module. Note that none of the "create" tests assert
+-- that the deal has been accepted by the api, simply that the create action 
+-- was successful
 module IG.REST.DealingSpec (spec) where
 
 import Control.Monad.Trans
@@ -12,11 +15,7 @@ import IG.REST.Dealing.Types
 import Test.Hspec
 import Tools
 
--- We need to be a little careful about the sequence of things here, I don't 
--- want to create a new position and then leave it open on the api
--- Create a position
--- Use it
--- Close it
+-- | Entry point for specs
 spec :: Spec
 spec = do
   (headers, loginResponse) <- loginToApi
@@ -25,12 +24,15 @@ spec = do
 
 descriptions :: AuthHeaders -> Spec
 descriptions headers = do
-  describe "createPosition" $ createPositionSpec headers
-  describe "confirms"       $ confirmsSpec headers
-  describe "allPositions"   $ allPositionsSpec headers
-  describe "closePosition"  $ closePositionSpec headers
-  describe "updatePosition" $ updatePositionSpec headers
-  describe "workingOrders"  $ workingOrdersSpec headers
+  describe "createPosition"       $ createPositionSpec headers
+  describe "confirms"             $ confirmsSpec headers
+  describe "allPositions"         $ allPositionsSpec headers
+  describe "closePosition"        $ closePositionSpec headers
+  describe "updatePosition"       $ updatePositionSpec headers
+  describe "workingOrders"        $ workingOrdersSpec headers
+  describe "createWorkingOrders"  $ createWorkingOrderSpec headers
+  describe "deleteWorkingOrder"   $ deleteWorkingOrderSpec headers
+
 
 createPositionSpec :: AuthHeaders -> Spec
 createPositionSpec headers = 
@@ -39,11 +41,14 @@ createPositionSpec headers =
     isRight response `shouldBe` True
 
 
+defaultEpic = "IX.D.FTSE.DAILY.IP"
+
+
 minimalPositionRequest :: PositionRequest
 minimalPositionRequest = PositionRequest { currencyCode = "GBP"
                                          , dealReference = Nothing
                                          , direction = BUY
-                                         , epic = "IX.D.FTSE.DAILY.IP"
+                                         , epic = defaultEpic
                                          , expiry = DFB
                                          , forceOpen = True
                                          , guaranteedStop = False
@@ -113,12 +118,55 @@ updatePositionSpec headers =
     isRight response `shouldBe` True
 
 
-
 workingOrdersSpec :: AuthHeaders -> Spec 
 workingOrdersSpec headers = 
   it "should download all the working orders" $ do
     orders <- getWorkingOrders headers
     isRight orders `shouldBe` True
+
+
+-- | Checks that a working order is correctly submitted, but does NOT check
+-- that the working order is accepted. These are two different matters!
+createWorkingOrderSpec :: AuthHeaders -> Spec 
+createWorkingOrderSpec headers = 
+ it "should create a new working order" $ do
+   cr <- createWorkingOrder headers minimalWorkingOrder
+   isRight cr `shouldBe` True 
+
+
+minimalWorkingOrder = WorkingOrderRequest { currencyCode = "GBP" 
+                                          , dealReference = Nothing 
+                                          , direction = BUY
+                                          , epic = defaultEpic
+                                          , expiry = DFB
+                                          , forceOpen = False
+                                          , goodTillDate = Nothing
+                                          , guaranteedStop = False
+                                          , level = 7500
+                                          , limitDistance = Nothing
+                                          , limitLevel = Nothing
+                                          , size = 1
+                                          , stopDistance = Nothing
+                                          , stopLevel = Nothing
+                                          , timeInForce = GOOD_TILL_CANCELLED
+                                          , woType = LIMIT
+                                          } 
+
+-- | This is a bit difficult to test programmatically since creating a valid
+-- working order is complicated by the fact that the level value must be valid,
+-- and who knows what level the market is at right now? Yes, it works.
+deleteWorkingOrderSpec :: AuthHeaders -> Spec
+deleteWorkingOrderSpec h = do
+  it "should delete the working order" $ do
+    deleted <- runEitherT $ do
+      eCreated <- lift $ createWorkingOrder h minimalWorkingOrder
+      hoistEither eCreated
+      eOrders <- lift $ getWorkingOrders h
+      orders <- hoistEither eOrders
+      let order = head . workingOrders $ orders
+      let id = dealId (workingOrderData order :: WorkingOrder)
+      lift $ deleteWorkingOrder h id
+    isRight deleted `shouldBe` True
 
 
 closeAll :: AuthHeaders -> IO ()

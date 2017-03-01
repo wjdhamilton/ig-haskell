@@ -79,7 +79,7 @@ toClosePositionRequest PositionData {position, market} opts =
 
 
 -- | Close several positions
-closePositions a@(AuthHeaders _ _ isDemo _) = undefined
+closePositions a@(AuthHeaders _ _ _ isDemo) = undefined
 
 
 -- | Create a new position. The outcome of this action needs is ascertained using
@@ -99,11 +99,11 @@ updatePosition a@(AuthHeaders _ _ _ isDemo) id req = do
 
 
 -- | Return a list of all open sprint market positions for the active account
-sprintPositions a@(AuthHeaders _ _ isDemo _) = undefined
+sprintPositions a@(AuthHeaders _ _ _ isDemo) = undefined
 
 
 -- | Create a sprint market position
-createSprintPosition a@(AuthHeaders _ _ isDemo _) = undefined
+createSprintPosition a@(AuthHeaders _ _ _ isDemo) = undefined
 
 
 -- | Return all open working orders for the active account
@@ -114,13 +114,32 @@ getWorkingOrders a@(AuthHeaders _ _ _ isDemo) = do
   apiRequest $ getWith opts url
 
 
+otcWorkingOrderPath isDemo mId =
+  host isDemo <> restPathSegment <> "/workingorders/otc/" <> id
+  where id = case mId of
+                  Nothing -> ""
+                  Just id -> id
+
+
 -- | Create a new working order for the active account
-createWorkingOrders a@(AuthHeaders _ _ isDemo _) = undefined
+createWorkingOrder :: AuthHeaders -> WorkingOrderRequest -> IO (Either ApiError DealReference)
+createWorkingOrder a@(AuthHeaders _ _ _ isDemo) req = do
+  let opts = buildHeaders "2" a
+  let url = Text.unpack $ otcWorkingOrderPath isDemo Nothing
+  apiRequest $ postWith opts url (toJSON req)
 
 
 -- | Delete an OTC working order
-deleteWorkingOrder a@(AuthHeaders _ _ isDemo _) id = undefined
+deleteWorkingOrder :: AuthHeaders -> Text -> IO (Either ApiError DealReference)
+deleteWorkingOrder a@(AuthHeaders _ _ _ isDemo) id = do
+  let opts = buildHeaders "2" a
+  let url = Text.unpack $ otcWorkingOrderPath isDemo (Just id)
+  apiRequest $ deleteWith opts url
 
 
 -- | Update a working order
-updateWorkingOrder a@(AuthHeaders _ _ isDemo _) id = undefined
+updateWorkingOrder :: AuthHeaders -> Text -> WorkingOrderUpdate -> IO (Either ApiError DealReference)
+updateWorkingOrder a@(AuthHeaders _ _ _ isDemo) id update = do
+  let opts = buildHeaders "2" a
+  let url = Text.unpack $ otcWorkingOrderPath isDemo (Just id)
+  apiRequest $ putWith opts url (toJSON update)

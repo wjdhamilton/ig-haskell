@@ -1,5 +1,7 @@
 {-# LANGUAGE DeriveGeneric #-}
-
+{-# LANGUAGE RecordWildCards #-}
+-- | All the different types used in Dealing. These include objects that represent
+-- requests and responses.
 module IG.REST.Dealing.Types where
 
 import Data.Aeson
@@ -23,7 +25,7 @@ data DealConfirmation = DealConfirmation { date :: UTCDate -- ^ Date and time of
                                          , dealStatus :: DealStatus -- ^ Deal status
                                          , direction :: Direction -- ^ Deal direction
                                          , epic :: Text -- ^ Instrument epic identifier
-                                         , expiry :: InstrumentExpiry -- ^ Instrument expiry
+                                         , expiry :: Maybe InstrumentExpiry -- ^ Instrument expiry
                                          , guaranteedStop :: Bool -- ^ True if guaranteed stop
                                          , level :: Maybe Double -- ^ The level
                                          , limitDistance :: Maybe Double -- ^ Limit distance
@@ -52,6 +54,13 @@ instance FromJSON UTCDate where
     return $ UTCDate . fromJust $ time ( Text.unpack d )
     where time = parseTimeM True locale utcDateTimeFormat
           locale = defaultTimeLocale
+
+
+instance ToJSON UTCDate where
+  toJSON (UTCDate d) = String formatted
+    where formatted = Text.pack $ formatTime locale format d
+          locale = defaultTimeLocale
+          format = "%Y/%m/%d %H:%M:%S"
 
 
 -- | Represents a time point as returned by the API
@@ -88,6 +97,7 @@ data DealStatus = ACCEPTED
 instance FromJSON DealStatus
 
 
+-- | Indicates the status of a position
 data Status = AMENDED
             | DELETED
             | FULLY_CLOSED
@@ -297,7 +307,7 @@ data Position = Position { contractSize :: Double -- ^ Size of the contract
 instance FromJSON Position
 
 
--- ^ Represents the payload that is sent over when a position is created
+-- | Represents the payload that is sent over when a position is created
 data PositionRequest = PositionRequest { currencyCode :: Text
                                        , dealReference :: Maybe Text
                                        , direction :: Direction
@@ -422,6 +432,11 @@ data CloseOptions = CloseOptions { level :: Maybe Double
                                  , epic :: Maybe Text
                                  } 
 
+-- | Returns a base CloseOptions instance, where the orderType is set to MARKET
+-- and all other attributes are Nothing. 
+defaultCloseOptions :: CloseOptions
+defaultCloseOptions = CloseOptions Nothing MARKET Nothing Nothing Nothing Nothing Nothing
+
 
 -- | Options for payload used in updating a position. The API only allows the 
 -- updating of stop and limit levels
@@ -452,11 +467,11 @@ instance FromJSON WorkingOrdersResponse
 -- | The details of a working order
 data WorkingOrder = WorkingOrder { createdDateUTC :: UTCDate
                                  , currencyCode :: Text
-                                 , dealId :: String
+                                 , dealId :: Text
                                  , direction :: Direction
                                  , dma :: Bool
                                  , epic :: Text
-                                 , goodTillDateISO :: UTCDate -- ? The ISO suggests this might not be utc
+                                 , goodTillDateISO :: Maybe UTCDate -- ? The ISO suggests this might not be utc
                                  , guaranteedStop :: Bool
                                  , limitDistance :: Maybe Double
                                  , orderLevel :: Double
@@ -469,3 +484,62 @@ data WorkingOrder = WorkingOrder { createdDateUTC :: UTCDate
 instance FromJSON WorkingOrder
 
 
+-- | Request to construct a working order
+data WorkingOrderRequest = WorkingOrderRequest { currencyCode :: Text
+                                               , dealReference :: Maybe Text
+                                               , direction :: Direction
+                                               , epic :: Text
+                                               , expiry :: InstrumentExpiry
+                                               , forceOpen :: Bool
+                                               , goodTillDate :: Maybe UTCDate
+                                               , guaranteedStop :: Bool
+                                               , level :: Double
+                                               , limitDistance :: Maybe Double
+                                               , limitLevel :: Maybe Double
+                                               , size :: Double
+                                               , stopDistance :: Maybe Double
+                                               , stopLevel :: Maybe Double
+                                               , timeInForce :: TimeInForce
+                                               , woType :: OrderType
+                                               } deriving (Generic, Show)
+
+instance ToJSON WorkingOrderRequest where
+  toJSON (WorkingOrderRequest{..}) = object [ "currencyCode"   .= currencyCode 
+                                            , "dealReference"  .= dealReference 
+                                            , "direction"      .= direction 
+                                            , "epic"           .= epic 
+                                            , "expiry"         .= expiry
+                                            , "forceOpen"      .= forceOpen 
+                                            , "goodTillDate"   .= goodTillDate 
+                                            , "guaranteedStop" .= guaranteedStop 
+                                            , "level"          .= level 
+                                            , "limitDistance"  .= limitDistance 
+                                            , "limitLevel"     .= limitLevel 
+                                            , "size"           .= size 
+                                            , "stopDistance"   .= stopDistance 
+                                            , "stopLevel"      .= stopLevel 
+                                            , "timeInForce"    .= timeInForce 
+                                            , "type"           .= woType 
+                                            ]
+
+
+data WorkingOrderUpdate = WorkingOrderUpdate { goodTillDate :: Maybe UTCDate
+                                             , level :: Double
+                                             , limitDistance :: Maybe Double
+                                             , limitLevel :: Maybe Double
+                                             , stopDistance :: Maybe Double
+                                             , stopLevel :: Maybe Double
+                                             , timeInForce :: TimeInForce
+                                             , woType :: OrderType
+                                             } deriving (Generic, Show)
+
+instance ToJSON WorkingOrderUpdate where
+  toJSON WorkingOrderUpdate{..} = object [ "goodTillDate"  .= goodTillDate
+                                          , "level"         .= level
+                                          , "limitDistance" .= limitDistance
+                                          , "limitLevel"    .= limitLevel
+                                          , "stopDistance"  .= stopDistance
+                                          , "stopLevel"     .= stopLevel
+                                          , "timeInForce"   .= timeInForce
+                                          , "type"          .= woType
+                                          ]
