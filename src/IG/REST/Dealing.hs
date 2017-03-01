@@ -1,4 +1,5 @@
 -- | Functions for sending requests to the Dealing endpoint of the API
+{-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE NamedFieldPuns #-}
 module IG.REST.Dealing where
 
@@ -39,7 +40,7 @@ allPositions a@(AuthHeaders _ _ _ isLogin) = do
 positionDetails :: AuthHeaders -> Text -> IO (Either ApiError PositionData)
 positionDetails a@(AuthHeaders _ _ _ isLogin) id = do
   let opts = buildHeaders "2" a
-  let url = Text.unpack $ host isLogin <> restPathSegment <> "positions/" <> id
+  let url = Text.unpack $ (host isLogin) <> restPathSegment <> "positions/" <> id
   apiRequest $ getWith opts url
 
 
@@ -51,7 +52,7 @@ closePosition :: AuthHeaders -> PositionData -> CloseOptions -> IO (Either ApiEr
 closePosition a@(AuthHeaders _ _ _ isLogin) p options = do
   let opts = buildHeaders "1" a & header "_method" .~ ["DELETE"]
   let url = otcPath isLogin
-  let payload = toJSON $ toClosePositionRequest p options 
+  let payload = (toJSON $ toClosePositionRequest p options) 
   apiRequest $ postWith opts url payload
 
 
@@ -61,7 +62,7 @@ closePosition a@(AuthHeaders _ _ _ isLogin) p options = do
 -- TODO Would it not be more useful if CloseOptions were wrapped in a maybe
 -- and if Nothing is passed in then defaults apply?
 toClosePositionRequest :: PositionData -> CloseOptions -> ClosePositionRequest
-toClosePositionRequest PositionData {position, market} opts =
+toClosePositionRequest (PositionData {position, market}) opts =
   ClosePositionRequest { dealId = dealId (position :: Position)
                        , epic = epic (opts :: CloseOptions)
                        , expiry = expiry (opts :: CloseOptions)
