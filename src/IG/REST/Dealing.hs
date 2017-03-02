@@ -18,39 +18,39 @@ import Network.Wreq
 
 -- | Obtain a DealConfirmation for a given reference. 
 confirms :: AuthHeaders -> DealReference -> IO (Either ApiError DealConfirmation)
-confirms a@(AuthHeaders _ _ _ isLogin) ref = do
+confirms a@(AuthHeaders _ _ _ isDemo) ref = do
   let opts = buildHeaders "1" a
   let reference = dealReference (ref :: DealReference)
   let confirmPath = restPathSegment <> "confirms/"
-  let url = Text.unpack $ host isLogin <> confirmPath <> "/" <> reference
+  let url = Text.unpack $ host isDemo <> confirmPath <> "/" <> reference
   apiRequest (getWith opts url)
          
   
 -- | Return all open positions for the active account
 allPositions :: AuthHeaders -> IO (Either ApiError PositionsResponse)
-allPositions a@(AuthHeaders _ _ _ isLogin) = do
+allPositions a@(AuthHeaders _ _ _ isDemo) = do
   let opts = buildHeaders "2" a
   let positionsPath = "positions"
-  let url = Text.unpack $ host isLogin <> restPathSegment <> positionsPath
+  let url = Text.unpack $ host isDemo <> restPathSegment <> positionsPath
   apiRequest $ getWith opts url
 
 
 -- | Return an open position for the active account by deal identifier
 positionDetails :: AuthHeaders -> Text -> IO (Either ApiError PositionData)
-positionDetails a@(AuthHeaders _ _ _ isLogin) id = do
+positionDetails a@(AuthHeaders _ _ _ isDemo) id = do
   let opts = buildHeaders "2" a
-  let url = Text.unpack $ host isLogin <> restPathSegment <> "positions/" <> id
+  let url = Text.unpack $ host isDemo <> restPathSegment <> "positions/" <> id
   apiRequest $ getWith opts url
 
 
 otcPath :: Bool -> String
-otcPath isLogin = Text.unpack $ host isLogin <> restPathSegment <> "positions/otc"
+otcPath isDemo = Text.unpack $ host isDemo <> restPathSegment <> "positions/otc"
 
 -- | Close one position
 closePosition :: AuthHeaders -> PositionData -> CloseOptions -> IO (Either ApiError DealReference)
-closePosition a@(AuthHeaders _ _ _ isLogin) p options = do
+closePosition a@(AuthHeaders _ _ _ isDemo) p options = do
   let opts = buildHeaders "1" a & header "_method" .~ ["DELETE"]
-  let url = otcPath isLogin
+  let url = otcPath isDemo
   let payload = toJSON $ toClosePositionRequest p options 
   apiRequest $ postWith opts url payload
 
@@ -79,44 +79,67 @@ toClosePositionRequest PositionData {position, market} opts =
 
 
 -- | Close several positions
-closePositions a@(AuthHeaders _ _ isLogin _) = undefined
+closePositions a@(AuthHeaders _ _ _ isDemo) = undefined
 
 
 -- | Create a new position. The outcome of this action needs is ascertained using
 -- @confirms
 createPosition :: AuthHeaders -> PositionRequest -> IO (Either ApiError DealReference)
-createPosition a@(AuthHeaders _ _ _ isLogin ) positionRequest = do
+createPosition a@(AuthHeaders _ _ _ isDemo ) positionRequest = do
   let opts = buildHeaders "2" a
-  apiRequest $ postWith opts (otcPath True) (toJSON positionRequest)
+  apiRequest $ postWith opts (otcPath isDemo ) (toJSON positionRequest)
 
 
 -- | Update an open position
 updatePosition :: AuthHeaders -> Text -> PositionUpdateRequest -> IO (Either ApiError DealReference)
-updatePosition a@(AuthHeaders _ _ isLogin _) id req = do
+updatePosition a@(AuthHeaders _ _ _ isDemo) id req = do
   let opts = buildHeaders "2" a
-  let url = otcPath True <> "/" <> Text.unpack id
+  let url = otcPath isDemo <> "/" <> Text.unpack id
   apiRequest $ putWith opts url (toJSON req)
 
 
 -- | Return a list of all open sprint market positions for the active account
-sprintPositions a@(AuthHeaders _ _ isLogin _) = undefined
+sprintPositions a@(AuthHeaders _ _ _ isDemo) = undefined
 
 
 -- | Create a sprint market position
-createSprintPosition a@(AuthHeaders _ _ isLogin _) = undefined
+createSprintPosition a@(AuthHeaders _ _ _ isDemo) = undefined
 
 
 -- | Return all open working orders for the active account
-workingOrders a@(AuthHeaders _ _ isLogin _) = undefined
+getWorkingOrders :: AuthHeaders -> IO (Either ApiError WorkingOrdersResponse)
+getWorkingOrders a@(AuthHeaders _ _ _ isDemo) = do
+  let opts = buildHeaders "2" a
+  let url = Text.unpack $ host isDemo <> restPathSegment <> "/workingorders"
+  apiRequest $ getWith opts url
+
+
+otcWorkingOrderPath isDemo mId =
+  host isDemo <> restPathSegment <> "/workingorders/otc/" <> id
+  where id = case mId of
+                  Nothing -> ""
+                  Just id -> id
 
 
 -- | Create a new working order for the active account
-createWorkingOrders a@(AuthHeaders _ _ isLogin _) = undefined
+createWorkingOrder :: AuthHeaders -> WorkingOrderRequest -> IO (Either ApiError DealReference)
+createWorkingOrder a@(AuthHeaders _ _ _ isDemo) req = do
+  let opts = buildHeaders "2" a
+  let url = Text.unpack $ otcWorkingOrderPath isDemo Nothing
+  apiRequest $ postWith opts url (toJSON req)
 
 
 -- | Delete an OTC working order
-deleteWorkingOrder a@(AuthHeaders _ _ isLogin _) id = undefined
+deleteWorkingOrder :: AuthHeaders -> Text -> IO (Either ApiError DealReference)
+deleteWorkingOrder a@(AuthHeaders _ _ _ isDemo) id = do
+  let opts = buildHeaders "2" a
+  let url = Text.unpack $ otcWorkingOrderPath isDemo (Just id)
+  apiRequest $ deleteWith opts url
 
 
 -- | Update a working order
-updateWorkingOrder a@(AuthHeaders _ _ isLogin _) id = undefined
+updateWorkingOrder :: AuthHeaders -> Text -> WorkingOrderUpdate -> IO (Either ApiError DealReference)
+updateWorkingOrder a@(AuthHeaders _ _ _ isDemo) id update = do
+  let opts = buildHeaders "2" a
+  let url = Text.unpack $ otcWorkingOrderPath isDemo (Just id)
+  apiRequest $ putWith opts url (toJSON update)
