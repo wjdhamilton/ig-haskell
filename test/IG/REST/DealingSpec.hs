@@ -102,27 +102,6 @@ closePositionSpec headers =
 updatePositionSpec :: AuthHeaders -> Spec
 updatePositionSpec headers = 
   it "should update the position correctly" $ do
-<<<<<<< HEAD
-    dealRef <- createPosition headers minimalPositionRequest
-    case dealRef of
-         Left e -> error $ show e
-         Right ref -> do
-           confirmation <- confirms headers ref
-           case confirmation of
-                Left e -> error $ show e
-                Right conf -> do
-                  let id = dealId (conf :: DealConfirmation)
-                  ePos <- positionDetails headers id
-                  case ePos of 
-                       Left e -> error $ show e
-                       Right pos -> do
-                         let p = position (pos :: PositionData)
-                         let l = level (p :: Position)
-                         let stopLevel = Just $ l - 10
-                         let updateOpts = PositionUpdateRequest Nothing stopLevel (Just False) Nothing Nothing
-                         response <- updatePosition headers id updateOpts
-                         isRight response `shouldBe` True
-=======
     response <- runEitherT $ do
       eDealRef <- lift $ createPosition headers minimalPositionRequest
       dealRef <- hoistEither eDealRef
@@ -172,6 +151,7 @@ minimalWorkingOrder = WorkingOrderRequest { currencyCode = "GBP"
                                           , timeInForce = GOOD_TILL_CANCELLED
                                           , woType = LIMIT
                                           } 
+
 
 -- | This is a bit difficult to test programmatically since creating a valid
 -- working order is complicated by the fact that the level value must be valid,
