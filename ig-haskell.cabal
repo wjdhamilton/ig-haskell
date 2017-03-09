@@ -20,18 +20,24 @@ library
                      , IG.REST.Login
                      , IG.REST.Dealing
                      , IG.REST.Dealing.Types
+                     , IG.Realtime
   build-depends:       base >= 4.7 && < 5
                      , aeson
                      , bytestring
                      , containers
+                     , either
+                     , either-unwrap
                      , flow
                      , http-client
                      , http-client-tls
                      , http-types
                      , lens
                      , lens-aeson
+                     , mtl
                      , regex-pcre
+                     , safe
                      , scientific
+                     , stm
                      , text
                      , time
                      , unordered-containers
