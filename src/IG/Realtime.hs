@@ -44,6 +44,7 @@ import Network.HTTP.Client.TLS
 import Network.HTTP.Types.Status (Status, statusCode)
 import qualified Network.Wreq  as Wreq
 import Safe
+import System.Timeout
 
 type SessId = Text
 type SessURL = Text
@@ -65,10 +66,10 @@ openSession :: AuthHeaders
 openSession headers host =
  runEitherT $ do
     eStream <- lift $ buildRequest headers host >>= openStream 
-    (id, sessUrl, stream) <- hoistEither eStream
+    (id, sessUrl, time, stream) <- hoistEither eStream
     chan <- lift (atomically newTChan)
     let body = Client.responseBody stream
-    lift $ forkIO (listen body id sessUrl host chan)
+    lift $ forkIO (listen body id sessUrl host chan time)
     return (id, sessUrl, chan)
 
 
@@ -93,7 +94,7 @@ realTimeBase :: Text -> Text
 realTimeBase host = host <> "/lightstreamer"
 
 
-openStream :: Request -> IO (Either RealTimeError (Text, Text, Response BodyReader))
+openStream :: Request -> IO (Either RealTimeError (Text, Text, Int, Response BodyReader))
 openStream req = do
   manager <- newManager tlsManagerSettings
   realTimeRequest req manager
@@ -101,15 +102,15 @@ openStream req = do
 
 -- | Open a connection to the IG real time sever. If an error occurs then Left
 -- RealTimeError is returned, otherwise Right (Response BodyReader)
-realTimeRequest :: Request -> Manager -> IO (Either RealTimeError (Text, Text, Response BodyReader))
+realTimeRequest :: Request -> Manager -> IO (Either RealTimeError (Text, Text, Int, Response BodyReader))
 realTimeRequest req man = do
   response <- responseOpen req man
   let body = Client.responseBody response
   handshake <- brRead body
   case statusCode . responseStatus $ response of
        200 -> return $ case lsResponseCode handshake of
-                            "OK" -> let (id, url) = sessionData handshake in
-                                    Right (id, url, response)
+                            "OK" -> let (id, url, timeout) = sessionData handshake in
+                                    Right (id, url, timeout, response)
                             "1"  -> Left InvalidLogin
                             "2"  -> Left UnavailableAdapterSet
                             "7"  -> Left LicensedMaxSessionsReached
@@ -143,21 +144,31 @@ data FeedState = Loop
                | End
                | Datum ByteString
 
+
+timeoutFlag = "TIMEOUT"
+
+
 -- TODO: Need to close the response once it's finished or no longer required.
-listen :: BodyReader -> Text -> Text -> Text -> TChan Text -> IO ()
-listen body sess_id sess_url host channel = do
-  datum <- brRead body
-  case getFeedState datum of 
-       Loop    ->  
-         rebindSession sess_id sess_url host channel
-       End     -> 
-         return ()
-       Probe   -> do
-         atomically $ writeTChan channel (TE.decodeUtf8 datum)
-         listen body sess_id sess_url host channel
-       Datum d -> do
-         atomically $ writeTChan channel (TE.decodeUtf8 datum)
-         listen body sess_id sess_url host channel
+-- TODO: Also need to wait for a timeout commensurate to the keepalive period
+-- set above. 
+listen :: BodyReader -> Text -> Text -> Text -> TChan Text -> Int -> IO ()
+listen body sess_id sess_url host channel time = do
+  let t = time * 1000
+  mDatum <- timeout t (brRead body)
+  case mDatum of 
+       Nothing ->
+         atomically $ do writeTChan channel timeoutFlag
+       Just datum ->
+         case getFeedState datum of 
+              Loop    ->  
+                rebindSession sess_id sess_url host channel time
+              End     -> 
+                return ()
+              Probe   -> do
+                listen body sess_id sess_url host channel time
+              Datum d -> do
+                atomically $ writeTChan channel (TE.decodeUtf8 datum)
+                listen body sess_id sess_url host channel time
 
 
 getFeedState :: ByteString -> FeedState
@@ -170,30 +181,31 @@ getFeedState content =
        _       -> Datum content
 
 
--- TODO According to the docs, this request will require the CST and XST
-rebindSession :: Text -> Text -> Text -> TChan Text -> IO ()
-rebindSession id sess_url host channel = do
+rebindSession :: Text -> Text -> Text -> TChan Text -> Int -> IO ()
+rebindSession id sess_url host channel timeout = do
   let url = streamUrl host rebindSess ("LS_session=" <> id)
   eResponse <- parseRequest url >>= openStream
   case eResponse of
        Left e -> Safe.abort (show e)
-       Right (_,_,response) -> do
+       Right (_,_,_,response) -> do
          let body = Client.responseBody response
-         listen body id sess_url host channel
+         listen body id sess_url host channel timeout
 
 
 
-sessionData :: BS.ByteString -> (Text, Text)
-sessionData r = (sess_id, sess_url) 
+sessionData :: BS.ByteString -> (Text, Text, Int)
+sessionData r = (sess_id, sess_url, timeout) 
   where body = Text.lines . Text.pack . BS.unpack $ r
         extractArg = last . splitOn ":" . Text.strip 
         sess_id  = case atMay body 1 of
                         Just id -> 
                           extractArg id
                         Nothing -> 
-                          Safe.abort $ errorMessage "Session id could not be decoded" 
-        url  = fromMaybe (Safe.abort $ errorMessage "Session url could not be decoded") (atMay body 2)
+                          errorMessage "Session id could not be decoded" 
+        url = fromMaybe (errorMessage "Session url could not be decoded") (atMay body 2)
         sess_url = "https://" <> extractArg url
+        timeout = fromMaybe (errorMessage "Timeout could not be decoded") 
+                            (atMay body 3 >>= (\s -> readMay $ Text.unpack . extractArg $ s))
         errorMessage s = Safe.abort (s <> " " <> show body)
 
 
