@@ -68,8 +68,7 @@ openSession headers host =
     eStream <- lift $ buildRequest headers host >>= openStream 
     (id, sessUrl, time, stream) <- hoistEither eStream
     chan <- lift (atomically newTChan)
-    let body = Client.responseBody stream
-    lift $ forkIO (listen body id sessUrl host chan time)
+    lift $ forkIO (listen stream id sessUrl host chan time)
     return (id, sessUrl, chan)
 
 
@@ -149,10 +148,9 @@ timeoutFlag = "TIMEOUT"
 
 
 -- TODO: Need to close the response once it's finished or no longer required.
--- TODO: Also need to wait for a timeout commensurate to the keepalive period
--- set above. 
-listen :: BodyReader -> Text -> Text -> Text -> TChan Text -> Int -> IO ()
-listen body sess_id sess_url host channel time = do
+listen :: Response BodyReader -> Text -> Text -> Text -> TChan Text -> Int -> IO ()
+listen response sess_id sess_url host channel time = do
+  let body = Client.responseBody response
   let t = time * 1000
   mDatum <- timeout t (brRead body)
   case mDatum of 
@@ -162,13 +160,14 @@ listen body sess_id sess_url host channel time = do
          case getFeedState datum of 
               Loop    ->  
                 rebindSession sess_id sess_url host channel time
-              End     -> 
-                return ()
+              End     -> do
+                atomically $ writeTChan channel "Stream exhausted"
+                responseClose response
               Probe   -> do
-                listen body sess_id sess_url host channel time
+                listen response sess_id sess_url host channel time
               Datum d -> do
                 atomically $ writeTChan channel (TE.decodeUtf8 datum)
-                listen body sess_id sess_url host channel time
+                listen response sess_id sess_url host channel time
 
 
 getFeedState :: ByteString -> FeedState
@@ -188,8 +187,7 @@ rebindSession id sess_url host channel timeout = do
   case eResponse of
        Left e -> Safe.abort (show e)
        Right (_,_,_,response) -> do
-         let body = Client.responseBody response
-         listen body id sess_url host channel timeout
+         listen response id sess_url host channel timeout
 
 
 
