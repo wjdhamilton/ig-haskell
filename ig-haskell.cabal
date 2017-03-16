@@ -21,6 +21,7 @@ library
                      , IG.REST.Dealing
                      , IG.REST.Dealing.Types
                      , IG.Realtime
+                     , IG.Realtime.Types
   build-depends:       base >= 4.7 && < 5
                      , aeson
                      , bytestring
@@ -37,6 +38,7 @@ library
                      , regex-pcre
                      , safe
                      , scientific
+                     , split
                      , stm
                      , text
                      , time

@@ -19,7 +19,7 @@
 -- id and session url using a control connection. The control connection is run
 -- from a different thread than that which consumes the subscription. 
 
-module IG.Realtime where
+module IG.Realtime (control, openSession) where
 
 import Control.Concurrent
 import Control.Concurrent.STM as STM
@@ -30,16 +30,20 @@ import Control.Monad.Trans
 import Control.Monad.Trans.Either
 import Data.ByteString.Char8 as BS hiding (last)
 import qualified Data.ByteString.Lazy.Char8 as BL hiding (last)
+import Data.List as List
+import Data.Maybe
 import Data.Monoid
 import Data.Text as Text hiding (last)
+import Data.Text.Encoding as TE
 import IG
 import IG.REST
 import IG.REST.Login
+import IG.Realtime.Types
 import Network.HTTP.Client as Client
 import Network.HTTP.Client.TLS
 import Network.HTTP.Types.Status (Status, statusCode)
+import qualified Network.Wreq  as Wreq
 import Safe
-import Data.Text.Encoding as TE
 
 type SessId = Text
 type SessURL = Text
@@ -57,18 +61,15 @@ rebindSess = "/bind_session.txt"
 -- the data feed will be written
 openSession :: AuthHeaders 
             -> RealTimeURL 
-            -> IO(Either RealTimeError (TChan Text))
-openSession headers host = do
-  state <- runEitherT $ do
+            -> IO(Either RealTimeError (SessId, SessURL, TChan Text))
+openSession headers host =
+ runEitherT $ do
     eStream <- lift $ buildRequest headers host >>= openStream 
-    stream <- hoistEither eStream
-    let body = Client.responseBody $ stream
-    session <- lift $ brRead body
-    let (id, sessUrl) = sessionData session
-    chan <- lift (atomically $ do newTChan)
-    lift $ receiveData body id sessUrl host chan
-    return chan
-  return $ state
+    (id, sessUrl, stream) <- hoistEither eStream
+    chan <- lift (atomically newTChan)
+    let body = Client.responseBody stream
+    lift $ forkIO (listen body id sessUrl host chan)
+    return (id, sessUrl, chan)
 
 
 buildRequest :: AuthHeaders -> RealTimeURL -> IO Request
@@ -83,16 +84,16 @@ streamUrl host path args =
 
 
 mkRealtimeAuth :: AuthHeaders -> Text
-mkRealtimeAuth (AuthHeaders cst xst _ _) = key <> "=" <> tokens
+mkRealtimeAuth (AuthHeaders cst xst _ _) = key <> "=" <> tokens cst xst
   where key = "LS_password"
-        tokens = "CST-" <> cst <> "|" <> "XST-" <> xst
 
+tokens cst xst = "CST-" <> cst <> "|" <> "XST-" <> xst
 
 realTimeBase :: Text -> Text
 realTimeBase host = host <> "/lightstreamer"
 
 
-openStream :: Request -> IO (Either RealTimeError (Response BodyReader))
+openStream :: Request -> IO (Either RealTimeError (Text, Text, Response BodyReader))
 openStream req = do
   manager <- newManager tlsManagerSettings
   realTimeRequest req manager
@@ -100,15 +101,15 @@ openStream req = do
 
 -- | Open a connection to the IG real time sever. If an error occurs then Left
 -- RealTimeError is returned, otherwise Right (Response BodyReader)
-realTimeRequest :: Request -> Manager -> IO (Either RealTimeError (Response BodyReader))
+realTimeRequest :: Request -> Manager -> IO (Either RealTimeError (Text, Text, Response BodyReader))
 realTimeRequest req man = do
   response <- responseOpen req man
   let body = Client.responseBody response
   handshake <- brRead body
-  print handshake
   case statusCode . responseStatus $ response of
        200 -> return $ case lsResponseCode handshake of
-                            "OK" -> Right response
+                            "OK" -> let (id, url) = sessionData handshake in
+                                    Right (id, url, response)
                             "1"  -> Left InvalidLogin
                             "2"  -> Left UnavailableAdapterSet
                             "7"  -> Left LicensedMaxSessionsReached
@@ -134,30 +135,51 @@ data RealTimeError = InvalidLogin
 
 
 lsResponseCode :: BS.ByteString -> Text
-lsResponseCode body = Prelude.head . splitOn "\r\n" . Text.strip . TE.decodeUtf8 $ body
-
-data FeedState = Empty
+lsResponseCode = Prelude.head . splitOn "\r\n" . Text.strip . TE.decodeUtf8
 
 
-receiveData :: BodyReader -> Text -> Text -> Text -> (TChan Text) -> IO ()
-receiveData body sess_id sess_url host channel = do
+data FeedState = Loop
+               | Probe
+               | End
+               | Datum ByteString
+
+-- TODO: Need to close the response once it's finished or no longer required.
+listen :: BodyReader -> Text -> Text -> Text -> TChan Text -> IO ()
+listen body sess_id sess_url host channel = do
   datum <- brRead body
-  case datum of 
-       "" -> do rebindSession sess_id sess_url host channel
-       _  -> do
-              atomically $ writeTChan channel (TE.decodeUtf8 datum)
-              receiveData body sess_id sess_url host channel
+  case getFeedState datum of 
+       Loop    ->  
+         rebindSession sess_id sess_url host channel
+       End     -> 
+         return ()
+       Probe   -> do
+         atomically $ writeTChan channel (TE.decodeUtf8 datum)
+         listen body sess_id sess_url host channel
+       Datum d -> do
+         atomically $ writeTChan channel (TE.decodeUtf8 datum)
+         listen body sess_id sess_url host channel
 
 
+getFeedState :: ByteString -> FeedState
+getFeedState content = 
+  let message = lsResponseCode content in
+  case message of
+       "PROBE" -> Probe
+       "END"   -> End
+       "LOOP"  -> Loop
+       _       -> Datum content
+
+
+-- TODO According to the docs, this request will require the CST and XST
 rebindSession :: Text -> Text -> Text -> TChan Text -> IO ()
 rebindSession id sess_url host channel = do
   let url = streamUrl host rebindSess ("LS_session=" <> id)
   eResponse <- parseRequest url >>= openStream
   case eResponse of
-       Left e -> do Safe.abort (show e)
-       Right response -> do
+       Left e -> Safe.abort (show e)
+       Right (_,_,response) -> do
          let body = Client.responseBody response
-         receiveData body id sess_url host channel
+         listen body id sess_url host channel
 
 
 
@@ -169,11 +191,23 @@ sessionData r = (sess_id, sess_url)
                         Just id -> 
                           extractArg id
                         Nothing -> 
-                          Safe.abort $ errorMessage "Session id could not be extracted" 
-        sess_url = "https://" <> case atMay body 2 of
-                                      Just url -> 
-                                        url
-                                      Nothing -> 
-                                        errorMessage "Session url could not be extracted" 
-        errorMessage s = Safe.abort (s <> " " <> (show body))
+                          Safe.abort $ errorMessage "Session id could not be decoded" 
+        url  = fromMaybe (Safe.abort $ errorMessage "Session url could not be decoded") (atMay body 2)
+        sess_url = "https://" <> extractArg url
+        errorMessage s = Safe.abort (s <> " " <> show body)
 
+
+{--------------------------- Control Messages ----------------------------------}
+
+control :: Text -> [ControlProperty] -> Schema -> IO (Either RealTimeError ())
+control url atts schema = do
+  let opts = Wreq.defaults & Wreq.header "Content-Type" .~ ["application/x-www-form-urlencoded"]
+  let payload = lsBody atts schema
+  let controlUrl = Text.unpack $ url <> "/lightstreamer/control.txt"
+  response <- Wreq.postWith opts controlUrl payload
+  case response ^. Wreq.responseStatus . Wreq.statusCode of
+       200 -> return $ Right ()
+
+
+lsBody :: [ControlProperty] -> Schema -> [Wreq.FormParam]
+lsBody atts schema = encodeSchema schema ++ List.map encodeProperty atts
