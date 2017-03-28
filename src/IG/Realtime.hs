@@ -19,7 +19,7 @@
 -- id and session url using a control connection. The control connection is run
 -- from a different thread than that which consumes the subscription. 
 
-module IG.Realtime (control, openSession) where
+module IG.Realtime  where
 
 import Control.Concurrent
 import Control.Concurrent.STM as STM
@@ -87,7 +87,10 @@ mkRealtimeAuth :: AuthHeaders -> Text
 mkRealtimeAuth (AuthHeaders cst xst _ _) = key <> "=" <> tokens cst xst
   where key = "LS_password"
 
+
+tokens :: Text -> Text -> Text
 tokens cst xst = "CST-" <> cst <> "|" <> "XST-" <> xst
+
 
 realTimeBase :: Text -> Text
 realTimeBase host = host <> "/lightstreamer"
@@ -104,20 +107,16 @@ openStream req = do
 realTimeRequest :: Request -> Manager -> IO (Either RealTimeError (Text, Text, Int, Response BodyReader))
 realTimeRequest req man = do
   response <- responseOpen req man
+  checkStatus response (\body -> let (id, url, timeout) = sessionData body in
+                                     (id, url, timeout, response))
+
+
+checkStatus :: Response BodyReader -> (ByteString -> a) -> IO (Either RealTimeError a)
+checkStatus response f = do
   let body = Client.responseBody response
   handshake <- brRead body
   case statusCode . responseStatus $ response of
-       200 -> return $ case lsResponseCode handshake of
-                            "OK" -> let (id, url, timeout) = sessionData handshake in
-                                    Right (id, url, timeout, response)
-                            "1"  -> Left InvalidLogin
-                            "2"  -> Left UnavailableAdapterSet
-                            "7"  -> Left LicensedMaxSessionsReached
-                            "8"  -> Left ConfiguredMaxSessionsReached
-                            "9"  -> Left ConfiguredMaxServerLoadReached
-                            "10" -> Left NewSessionsBlocked
-                            "11" -> Left StreamingUnavailable
-                            "60" -> Left ClientVersionNotSupported
+       200 -> return $ mapErrorToResponseCode (BL.fromStrict handshake) (f handshake)
        _   -> return $ Left (Other $ responseStatus response)
 
 
@@ -130,12 +129,54 @@ data RealTimeError = InvalidLogin
                    | StreamingUnavailable
                    | MetadataAdapterError
                    | ClientVersionNotSupported
+                   | DataAdapterUnknown
+                   | TableNotFound
+                   | BadItemGroupName
+                   | BadItemGroupNameForSchema
+                   | BadFieldSchema
+                   | SubscriptionModeNotAllowed
+                   | BadSelectorName
+                   | NoUnfilteredDispatchFreq
+                   | NoUnfilteredDispatchPre
+                   | NoUnfilteredDispatch
+                   | RawModeNotAllowed
+                   | SubscriptionsNotAllowed
+                   | SubscriptionRefused
                    | Other Status
-                   deriving (Show)
+                   deriving (Eq, Show)
+
+
+mapErrorToResponseCode :: BL.ByteString -> a -> Either RealTimeError a
+mapErrorToResponseCode s x = let code = lsResponseCode (BL.toStrict s) in
+                             case code of
+                                  "OK" -> Right $ x
+                                  "1"  -> Left InvalidLogin
+                                  "2"  -> Left UnavailableAdapterSet
+                                  "7"  -> Left LicensedMaxSessionsReached
+                                  "8"  -> Left ConfiguredMaxSessionsReached
+                                  "9"  -> Left ConfiguredMaxServerLoadReached
+                                  "10" -> Left NewSessionsBlocked
+                                  "11" -> Left StreamingUnavailable
+                                  "17" -> Left DataAdapterUnknown
+                                  "19" -> Left TableNotFound 
+                                  "21" -> Left BadItemGroupName
+                                  "22" -> Left BadItemGroupNameForSchema
+                                  "23" -> Left BadFieldSchema
+                                  "24" -> Left SubscriptionModeNotAllowed
+                                  "25" -> Left BadSelectorName
+                                  "26" -> Left NoUnfilteredDispatchFreq
+                                  "27" -> Left NoUnfilteredDispatchPre
+                                  "28" -> Left NoUnfilteredDispatch
+                                  "29" -> Left RawModeNotAllowed
+                                  "30" -> Left SubscriptionsNotAllowed
+                                  "60" -> Left ClientVersionNotSupported
 
 
 lsResponseCode :: BS.ByteString -> Text
-lsResponseCode = Prelude.head . splitOn "\r\n" . Text.strip . TE.decodeUtf8
+lsResponseCode body = case Prelude.head readError of
+                           "OK" -> "OK"
+                           "ERROR" -> List.last $ List.take 2 readError
+  where readError = splitOn "\r\n" . Text.strip . TE.decodeUtf8 $ body
 
 
 data FeedState = Loop
@@ -209,14 +250,18 @@ sessionData r = (sess_id, sess_url, timeout)
 
 {--------------------------- Control Messages ----------------------------------}
 
+
 control :: Text -> [ControlProperty] -> Schema -> IO (Either RealTimeError ())
 control url atts schema = do
   let opts = Wreq.defaults & Wreq.header "Content-Type" .~ ["application/x-www-form-urlencoded"]
   let payload = lsBody atts schema
   let controlUrl = Text.unpack $ url <> "/lightstreamer/control.txt"
   response <- Wreq.postWith opts controlUrl payload
-  case response ^. Wreq.responseStatus . Wreq.statusCode of
-       200 -> return $ Right ()
+  let body = response ^. Wreq.responseBody
+  let status = response ^. Wreq.responseStatus 
+  case status ^. Wreq.statusCode of
+       200 -> return $ mapErrorToResponseCode body ()
+       _ -> return $ Left (Other status)
 
 
 lsBody :: [ControlProperty] -> Schema -> [Wreq.FormParam]
