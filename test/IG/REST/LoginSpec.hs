@@ -26,7 +26,7 @@ spec = do
 loginSpec :: Spec
 loginSpec = do
   context "with valid credentials" $ do
-    (apiKey, loginDetails) <- runIO getCredentials
+    (apiKey, loginDetails) <- runIO Tools.getCredentials
     response <- runIO $ login True apiKey loginDetails
 
     it "should return Right" $ do
@@ -43,7 +43,7 @@ loginSpec = do
 getBadCredentials :: IO (Text, LoginBody)
 getBadCredentials = do
   creds <- readFile "test/config.json"
-  let apiKey = getApiKey creds
+  let apiKey = Tools.getApiKey creds
   let username = "evil"
   let password = "bad"
   let loginDetails = LoginBody False username password
@@ -52,7 +52,7 @@ getBadCredentials = do
 
 logoutSpec :: Spec
 logoutSpec = do
-  (headers, _) <- loginToApi
+  (headers, _) <- Tools.loginToApi
   it "should logout without errors" $ do
     logout headers `shouldReturn` Right ()
 
@@ -60,7 +60,7 @@ logoutSpec = do
 -- | Note: Requires a login with two different test accounts attached to it. 
 switchAccountSpec :: Spec
 switchAccountSpec = do
-  (headers, loginResponse) <- loginToApi
+  (headers, loginResponse) <- Tools.loginToApi
   let currentAccount = currentAccountId loginResponse
   let otherAccounts = filter (\accId -> accId /= currentAccount) 
                     . map (\acc -> accountId acc) 

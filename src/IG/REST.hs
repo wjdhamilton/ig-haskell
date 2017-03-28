@@ -17,11 +17,8 @@ restPathSegment = "gateway/deal/"
 
 -- | Encapsulates the Client Security Token and Account Session access token. 
 -- These are both required for accessing the api and are acquired using @login
-data AuthHeaders = AuthHeaders {
-                               -- | The Client Security Token
-                               cst :: Text
-                               -- | The account session security access token
-                               , securityToken :: Text
+data AuthHeaders = AuthHeaders { cst :: Text -- ^ The Client Security Token
+                               , securityToken :: Text -- ^ The account session security access token
                                , apiToken :: Text
                                , isDemo :: Bool
                                } deriving (Eq, Show)
@@ -38,7 +35,7 @@ baseHeaders v key = defaults & header "Accept" .~ ["application/json", "charset=
                              & header "Version" .~ [ TE.encodeUtf8 v ]
                              & header "X-IG-API-KEY" .~ [TE.encodeUtf8 key]
                              & manager .~ Left (tlsManagerSettings)
-                             & checkStatus .~ (Just $ \_ _ _  -> Nothing)
+                             & checkResponse .~ (Just $ \_ _  -> return ()) -- TODO Check what this actually does
 
 
 -- | Takes an IO call to the API and returns an instance of Either containing

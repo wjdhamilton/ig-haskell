@@ -18,6 +18,27 @@ import IG (ApiError, apiError, decodeError, host)
 import IG.REST
 import Network.HTTP.Types hiding (statusCode)
 import Network.Wreq
+import Data.Either.Unwrap
+import Data.Maybe
+
+
+loginToApi = do
+    (apiKey, loginDetails) <- getCredentials
+    login True apiKey loginDetails
+
+
+getCredentials :: IO (Text, LoginBody)
+getCredentials = do
+  creds <- readFile "test/config.json"
+  let apiKey = getApiKey creds
+  let identifier = fromJust $ creds ^? key "username" . _String
+  let password = fromJust $ creds ^? key "password" . _String
+  let loginDetails = LoginBody False identifier password
+  return $ (apiKey, loginDetails)
+
+
+getApiKey :: String -> Text
+getApiKey creds = fromJust $ creds ^? key "apiKey" . _String
 -- Actions to create: 
 -- Log in
 -- Log out

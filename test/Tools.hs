@@ -14,7 +14,7 @@ import Test.Hspec
 
 
 loginToApi = do
-    (apiKey, loginDetails) <- runIO getCredentials
+    (apiKey, loginDetails) <- runIO Tools.getCredentials
     response <- runIO $ login True apiKey loginDetails
     return $ fromRight response
 
@@ -22,7 +22,7 @@ loginToApi = do
 getCredentials :: IO (Text, LoginBody)
 getCredentials = do
   creds <- readFile "test/config.json"
-  let apiKey = getApiKey creds
+  let apiKey = Tools.getApiKey creds
   let identifier = fromJust $ creds ^? key "username" . _String
   let password = fromJust $ creds ^? key "password" . _String
   let loginDetails = LoginBody False identifier password

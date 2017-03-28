@@ -116,9 +116,7 @@ getWorkingOrders a@(AuthHeaders _ _ _ isDemo) = do
 
 otcWorkingOrderPath isDemo mId =
   host isDemo <> restPathSegment <> "/workingorders/otc/" <> id
-  where id = case mId of
-                  Nothing -> ""
-                  Just id -> id
+  where id = fromMaybe "" mId
 
 
 -- | Create a new working order for the active account

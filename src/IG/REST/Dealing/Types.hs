@@ -504,7 +504,7 @@ data WorkingOrderRequest = WorkingOrderRequest { currencyCode :: Text
                                                } deriving (Generic, Show)
 
 instance ToJSON WorkingOrderRequest where
-  toJSON (WorkingOrderRequest{..}) = object [ "currencyCode"   .= currencyCode 
+  toJSON WorkingOrderRequest{..} = object [ "currencyCode"   .= currencyCode 
                                             , "dealReference"  .= dealReference 
                                             , "direction"      .= direction 
                                             , "epic"           .= epic 

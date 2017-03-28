@@ -20,18 +20,26 @@ library
                      , IG.REST.Login
                      , IG.REST.Dealing
                      , IG.REST.Dealing.Types
+                     , IG.Realtime
+                     , IG.Realtime.Types
   build-depends:       base >= 4.7 && < 5
                      , aeson
                      , bytestring
                      , containers
+                     , either
+                     , either-unwrap
                      , flow
                      , http-client
                      , http-client-tls
                      , http-types
                      , lens
                      , lens-aeson
+                     , mtl
                      , regex-pcre
+                     , safe
                      , scientific
+                     , split
+                     , stm
                      , text
                      , time
                      , unordered-containers
@@ -43,6 +51,10 @@ library
 test-suite ig-haskell-test
   type:                exitcode-stdio-1.0
   hs-source-dirs:      test
+  other-modules:     IG.REST.DealingSpec
+                     , IG.REST.LoginSpec
+                     , IG.RealtimeSpec
+                     , IGSpec
   main-is:             Spec.hs
   build-depends:       base
                      , aeson
@@ -69,4 +81,4 @@ test-suite ig-haskell-test
 
 source-repository head
   type:     git
-  location: https://github.com/githubuser/ig-haskell
+  location: https://github.com/wjdhamilton/ig-haskell
