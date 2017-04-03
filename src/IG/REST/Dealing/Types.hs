@@ -14,7 +14,7 @@ import IG.REST
 
 
 -- | Represents the payload returned by a deal confirmation request to the API
-data DealConfirmation = DealConfirmation { date :: UTCDate -- ^ Date and time of transaction
+data DealConfirmation = DealConfirmation { date :: IGDate -- ^ Date and time of transaction
                                          , affectedDeals :: [Deal] -- ^ Affected Deals
                                          , dealId :: Text -- ^ Deal Identifier
                                          , dealReference :: Text -- ^ Deal Reference
@@ -174,7 +174,7 @@ data Market = Market { bid :: Double -- ^ Bid
                      , percentageChange :: Double -- ^ Price percentage change
                      , scalingFactor :: Double -- ^ multiplying factor to determine actual pip value for the levels used by the instrument
                      , streamingPricesAvailable :: Bool -- ^ True if streaming prices are available, i.e. the market is tradeable and the client has appropriate permissions
-                     , updateTimeUTC :: DealTime -- ^ Time of last instrument price update
+                     , updateTimeUTC :: IGTime -- ^ Time of last instrument price update
                      } deriving (Show)
 
 
@@ -213,7 +213,7 @@ instance FromJSON MarketStatus
 -- ^ Data on a position. 
 data Position = Position { contractSize :: Double -- ^ Size of the contract
                          , controlledRisk :: Bool -- ^ True if position is risk controlled
-                         , createdDateUTC :: UTCDate -- ^ Date the position was opened
+                         , createdDateUTC :: IGDate -- ^ Date the position was opened
                          , currency :: Text -- ^ Position currency ISO code
                          , dealId :: Text -- ^ Deal identifier
                          , dealReference :: Text -- ^ Deal reference
@@ -357,13 +357,13 @@ data WorkingOrdersResponse = WorkingOrdersResponse { workingOrders :: [WorkingOr
 instance FromJSON WorkingOrdersResponse
 
 -- | The details of a working order
-data WorkingOrder = WorkingOrder { createdDateUTC :: UTCDate
+data WorkingOrder = WorkingOrder { createdDateUTC :: IGDate
                                  , currencyCode :: Text
                                  , dealId :: Text
                                  , direction :: Direction
                                  , dma :: Bool
                                  , epic :: Text
-                                 , goodTillDateISO :: Maybe UTCDate -- ? The ISO suggests this might not be utc
+                                 , goodTillDateISO :: Maybe IGDate -- ? The ISO suggests this might not be utc
                                  , guaranteedStop :: Bool
                                  , limitDistance :: Maybe Double
                                  , orderLevel :: Double
@@ -383,7 +383,7 @@ data WorkingOrderRequest = WorkingOrderRequest { currencyCode :: Text
                                                , epic :: Text
                                                , expiry :: InstrumentExpiry
                                                , forceOpen :: Bool
-                                               , goodTillDate :: Maybe UTCDate
+                                               , goodTillDate :: Maybe IGDate
                                                , guaranteedStop :: Bool
                                                , level :: Double
                                                , limitDistance :: Maybe Double
@@ -415,7 +415,7 @@ instance ToJSON WorkingOrderRequest where
                                             ]
 
 
-data WorkingOrderUpdate = WorkingOrderUpdate { goodTillDate :: Maybe UTCDate
+data WorkingOrderUpdate = WorkingOrderUpdate { goodTillDate :: Maybe IGDate
                                              , level :: Double
                                              , limitDistance :: Maybe Double
                                              , limitLevel :: Maybe Double

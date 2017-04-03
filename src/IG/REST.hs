@@ -79,43 +79,35 @@ apiRequest request = do
 utcDateTimeFormat :: String
 utcDateTimeFormat = iso8601DateFormat $ Just "%H:%M:%S%Q"
 
-formats = [ "%H:%M:%S%Q", "%H:%M" ]
+formats = [ "%H:%M:%S%Q", "%H:%M", "%X" ]
 
 dateFormats = Prelude.map (iso8601DateFormat . Just) formats
 
-data UTCDate = UTCDate UTCTime
+data IGDate = IGDate UTCTime
              deriving (Show)
 
 
-instance FromJSON UTCDate where
-  parseJSON = withText "UTCDate" $ \d ->
+instance FromJSON IGDate where
+  parseJSON = withText "IGDate" $ \d ->
     case tryFormats dateFormats d of
          Nothing -> fail $ Text.unpack ("Could not parse" <> d)
-         Just date -> return $ UTCDate date
+         Just date -> return $ IGDate date
 
 
-instance ToJSON UTCDate where
-  toJSON (UTCDate d) = String formatted
+instance ToJSON IGDate where
+  toJSON (IGDate d) = String formatted
     where formatted = Text.pack $ formatTime locale format d
           locale = defaultTimeLocale
           format = "%Y/%m/%dT%H:%M:%S"
 
 
--- | Represents a time point as returned by the API
-data DealTime = DealTime UTCTime 
-              deriving (Show)
+toUTCTime :: IGDate -> UTCTime
+toUTCTime (IGDate d) = d
 
--- TODO: Why not add this to the list of available formats and change the 
--- datatype to UTCDate
-instance FromJSON DealTime where 
 
-  parseJSON = withText "DealTime" $ \t -> 
-    case time ( Text.unpack t ) of
-         Just tm -> return $ DealTime tm
-         Nothing -> fail $ Text.unpack t
-    where time = parseTimeM True locale "%X" 
-          locale = defaultTimeLocale
-
+-- | Alias for IGDate that indicates that only the time parts of the date will
+-- have been completed
+type IGTime = IGDate
 
 tryFormats :: [String] -> Text -> Maybe UTCTime
 tryFormats [] t = Nothing

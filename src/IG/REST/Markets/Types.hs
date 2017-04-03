@@ -41,7 +41,7 @@ data Market = Market { delayTime :: Integer -- ^ Price delay time in minutes
                      , percentageChange :: Double -- ^ The percentage price change on the day
                      , scalingFactor :: Double -- ^ Multiplying factor to determine actual pip value for the levels used by the instrument
                      , streamingPricesAvailable :: Bool -- ^ True if streaming prices are available (i.e. the market is tradeable and the client holds the necessary access permissions)
-                     , updateTimeUTC :: DealTime
+                     , updateTimeUTC :: IGTime
                      } deriving (Generic, Show)
 
 
@@ -164,7 +164,7 @@ data SnapShot = SnapShot{ bid :: Double
                         , offer :: Double
                         , percentageChange :: Double
                         , scalingFactor :: Double
-                        , updateTime :: DealTime
+                        , updateTime :: IGTime
                         } deriving (Generic, Show)
 
 
@@ -187,7 +187,7 @@ data SlippageFactor = SlippageFactor { unit :: Text
 instance FromJSON SlippageFactor
 
 
-data RollOverDetails = RollOverDetails { lastRolloverTime :: DealTime
+data RollOverDetails = RollOverDetails { lastRolloverTime :: IGTime
                                        , settlementInfo :: Text
                                        } deriving (Generic, Show)
 
@@ -195,8 +195,8 @@ data RollOverDetails = RollOverDetails { lastRolloverTime :: DealTime
 instance FromJSON RollOverDetails
 
 
-data MarketHours = MarketHours { openTime :: DealTime
-                               , closeTime :: DealTime
+data MarketHours = MarketHours { openTime :: IGTime
+                               , closeTime :: IGTime
                                } deriving (Generic, Show)
 
 
@@ -229,7 +229,7 @@ data DealingRule = DealingRule { unit :: UnitDimension
 instance FromJSON DealingRule
 
 
-data ExpiryDetails = ExpiryDetails { lastDealingDate :: UTCDate
+data ExpiryDetails = ExpiryDetails { lastDealingDate :: IGDate
                                    , settlementInfo :: Text
                                    } deriving (Generic, Show)
 
@@ -288,7 +288,7 @@ data HistoricalMetadata = HistoricalMetadata { pageData :: PageData
 instance FromJSON HistoricalMetadata
 
 
-data PageData = PageData { pageNumber :: Double
+data PageData = PageData { pageNumber :: Int
                          , pageSize :: Double
                          , totalPages :: Double
                          } deriving (Generic, Show)
@@ -310,7 +310,7 @@ data HistoricalPrice = HistoricalPrice { closePrice :: PriceDatum
                                        , highPrice :: PriceDatum
                                        , lastTradedVolume :: Double
                                        , lowPrice :: PriceDatum
-                                       , snapshotTimeUTC :: UTCDate
+                                       , snapshotTimeUTC :: IGDate
                                        } deriving (Generic, Show)
 
 
@@ -341,11 +341,14 @@ data Resolution = DAY
                 | MONTH
                 | SECOND
                 | WEEK
+                deriving (Show)
 
 
 data HistoryOpts = HistoryOpts { from :: Maybe UTCTime
                                , to   :: Maybe UTCTime
                                , max  :: Maybe Int
                                , pageSize :: Maybe Int
+                               , resolution :: Maybe Resolution
+                               , pageNumber :: Maybe Int
                                }
 

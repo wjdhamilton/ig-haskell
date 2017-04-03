@@ -3,17 +3,22 @@
 
 module IG.REST.Markets where
 
-import Control.Lens hiding (from, to)
+import Control.Lens hiding ((|>), from, to)
 import Data.Aeson
 import Data.Aeson.Types hiding (Options)
 import Data.List as List
+import Data.ByteString.Char8 as BS
+import Data.ByteString.Lazy.Char8 as BL
 import Data.Monoid 
 import Data.Text as Text
 import Data.Text.Encoding as TE
+import Data.Time
+import Flow
 import IG
 import IG.REST
-import IG.REST.Markets.Types
+import IG.REST.Markets.Types as Types
 import Network.Wreq
+import Prelude hiding (max)
 
 marketUrl :: Bool -> Text
 marketUrl isDemo =
@@ -51,18 +56,21 @@ markets a@(AuthHeaders _ _ _ isDemo) epics = do
                 Right details -> return $ Right details
 
 
-historicalData :: AuthHeaders -> Epic -> HistoryOpts -> Maybe Int -> IO (Either ApiError HistoricalPrices)
-historicalData a@(AuthHeaders _ _ _ isDemo) e hOpts page = do
-  let opts = v3 a -? ("from", from hOpts) 
-                  -? ("to", to hOpts) 
-                  -? ("max", IG.REST.Markets.Types.max (hOpts :: HistoryOpts)) 
-                  -? ("pageSize", pageSize (hOpts :: HistoryOpts))
-                  -? ("page", page)
-  let url = Text.unpack $ marketUrl isDemo </> "prices" </> e
+historicalData :: AuthHeaders -> Epic -> HistoryOpts -> IO (Either ApiError HistoricalPrices)
+historicalData a@(AuthHeaders _ _ _ isDemo) e hOpts = do
+  let baseOpts = v3 a
+  let timeF = formatTime defaultTimeLocale "%Y-%m-%dT%H:%M:%S" :: UTCTime -> String
+  let opts = baseOpts 
+           |> histOpt "from"        (from hOpts) (\x -> Text.pack $ timeF x)
+           |> histOpt "to"          (to hOpts) (\x -> Text.pack $ timeF x)
+           |> histOpt "max"         (max (hOpts :: HistoryOpts)) (Text.pack . show)
+           |> histOpt "pageSize"    (pageSize (hOpts:: HistoryOpts)) (Text.pack . show)
+           |> histOpt "resolution"  (resolution hOpts) (Text.pack . show)
+  let url = Text.unpack $ marketUrl isDemo </> "prices" </> e 
   apiRequest $ getWith opts url
 
 
-(-?) :: Show a => Options -> (Text, Maybe a) -> Options
-(-?) base (k, val) = case val of
-                      Nothing -> base
-                      Just v  -> base & param k .~ [Text.pack $ show v]
+histOpt :: Text -> Maybe a -> (a -> Text) -> Options -> Options
+histOpt k value f opts = case value of
+                         Nothing -> opts
+                         Just v -> opts & param k .~ [f v]
