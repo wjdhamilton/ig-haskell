@@ -20,6 +20,8 @@ library
                      , IG.REST.Login
                      , IG.REST.Dealing
                      , IG.REST.Dealing.Types
+                     , IG.REST.Markets
+                     , IG.REST.Markets.Types
                      , IG.Realtime
                      , IG.Realtime.Types
   build-depends:       base >= 4.7 && < 5
@@ -55,6 +57,7 @@ test-suite ig-haskell-test
                      , IG.REST.LoginSpec
                      , IG.RealtimeSpec
                      , IGSpec
+                     , IG.REST.MarketsSpec
   main-is:             Spec.hs
   build-depends:       base
                      , aeson

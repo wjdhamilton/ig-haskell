@@ -22,9 +22,9 @@ import Data.Either.Unwrap
 import Data.Maybe
 
 
-loginToApi = do
+loginToApi isDemo = do
     (apiKey, loginDetails) <- getCredentials
-    login True apiKey loginDetails
+    login isDemo apiKey loginDetails
 
 
 getCredentials :: IO (Text, LoginBody)
@@ -174,7 +174,7 @@ login isDemo key logBody = do
                             Right (AuthHeaders clientToken sessToken key isDemo, res)
                         Nothing -> return $ Left "Could not parse tokens"
        _ -> apiError response Map.empty
-  where loginUrl = Text.unpack $ host isDemo <> restPath
+  where loginUrl = Text.unpack $ host isDemo </> restPath
 
 
 loginOptions :: Text -> Options
@@ -190,7 +190,7 @@ getSecurityHeaders response = (,) <$> cst <*> xst
 logout :: AuthHeaders -> IO (Either ApiError ())
 logout headers = do 
   let opts = buildHeaders "1" headers
-  r <- deleteWith opts $ Text.unpack (host (isDemo headers) <> restPath)
+  r <- deleteWith opts $ Text.unpack (host (isDemo headers) </> restPath)
   case r ^. responseStatus ^. statusCode of
        204 -> do return $ Right ()
        _   -> do return . Left $ decodeError (r ^. responseBody)
@@ -251,14 +251,14 @@ switchAccount :: AuthHeaders -> Text -> Bool -> IO (Either String ())
 switchAccount a@(AuthHeaders _ _ _ isLogin) id isDefault = do
   let payload = toJSON $ SwitchAccountData id isDefault
   let opts = buildHeaders "1" a
-  r <- putWith opts (unpack $ host isLogin <> restPath) payload
+  r <- putWith opts (unpack $ host isLogin </> restPath) payload
   case r ^. responseStatus ^. statusCode of
        200 -> return $ Right ()
        _   -> apiError r Map.empty 
 
 
 accountsPath :: Bool -> String
-accountsPath isLogin = unpack $ host isLogin <> restPath
+accountsPath isLogin = unpack $ host isLogin </> restPath
 
 
 encryptionKey = undefined

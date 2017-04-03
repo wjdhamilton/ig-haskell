@@ -5,6 +5,7 @@ import Data.List as List
 import Data.List.Split
 import Data.Monoid
 import Data.Text (Text)
+import IG
 import Flow
 import qualified Data.Text as Text
 import Network.Wreq
@@ -50,7 +51,6 @@ data SubMode = Merge
 
 instance ControlAttribute SubMode
 
-type Epic = Text
 type AccountId = Text
 
 
