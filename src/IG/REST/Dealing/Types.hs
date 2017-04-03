@@ -10,11 +10,7 @@ import GHC.Generics
 import Data.Text (Text)
 import qualified Data.Text as Text
 import Data.Maybe
-import Data.Time
-
-
-utcDateTimeFormat :: String
-utcDateTimeFormat = iso8601DateFormat $ Just "%H:%M:%S%Q"
+import IG.REST
 
 
 -- | Represents the payload returned by a deal confirmation request to the API
@@ -36,7 +32,7 @@ data DealConfirmation = DealConfirmation { date :: UTCDate -- ^ Date and time of
                                          -- ^ The error (or success condition) for the
                                          -- trading operation
                                          , size :: Double
-                                         , status :: Status
+                                         , status :: Maybe Status -- ^ This can be Nothing if the market is closed or the deal is rejected
                                          , stopDistance :: Maybe Double -- ^ Stop distance
                                          , stopLevel :: Maybe Double -- ^ Stop level
                                          , trailingStop :: Bool -- ^ True if trailing stop
@@ -44,36 +40,6 @@ data DealConfirmation = DealConfirmation { date :: UTCDate -- ^ Date and time of
 
 instance FromJSON DealConfirmation
 
-
-data UTCDate = UTCDate UTCTime
-             deriving (Show)
-
-
-instance FromJSON UTCDate where
-  parseJSON = withText "UTCDate" $ \d ->
-    return $ UTCDate . fromJust $ time ( Text.unpack d )
-    where time = parseTimeM True locale utcDateTimeFormat
-          locale = defaultTimeLocale
-
-
-instance ToJSON UTCDate where
-  toJSON (UTCDate d) = String formatted
-    where formatted = Text.pack $ formatTime locale format d
-          locale = defaultTimeLocale
-          format = "%Y/%m/%d %H:%M:%S"
-
-
--- | Represents a time point as returned by the API
-data DealTime = DealTime UTCTime 
-              deriving (Show)
-
-
-instance FromJSON DealTime where 
-
-  parseJSON = withText "DealTime" $ \t -> 
-    return $ DealTime . fromJust $ time ( Text.unpack t )
-    where time = parseTimeM True locale "%X" 
-          locale = defaultTimeLocale
 
 -- | Represents overview info on an account's deals. 
 data Deal = Deal { dealId :: String
@@ -244,50 +210,6 @@ data MarketStatus = CLOSED
 
 instance FromJSON MarketStatus
 
-data InstrumentType = BINARY -- ^ Binaries
-                    | BUNGEE_CAPPED -- ^ Capped bungees
-                    | BUNGEE_COMMODITIES -- ^ Commodity bungees
-                    | BUNGEE_CURRENCIES -- ^ Currency bungees
-                    | BUNGEE_INDICES -- ^ Index bungees
-                    | COMMODITIES -- ^ Commodities
-                    | CURRENCIES -- ^ Currencies
-                    | INDICES -- ^ Indices
-                    | OPT_COMMODITIES -- ^ Commodity options
-                    | OPT_CURRENCIES -- ^ Currency options
-                    | OPT_INDICES -- ^ Index options
-                    | OPT_RATES -- ^ FX Options
-                    | OPT_SHARES -- ^ Share options
-                    | RATES -- ^ Rates
-                    | SECTORS -- ^ Sectors
-                    | SHARES -- ^ Shares
-                    | SPRINT_MARKET -- ^ Sprint Market
-                    | TEST_MARKET -- ^ Test market
-                    | UNKNOWN_INSTRUMENT_TYPE -- ^ Unknown
-                    deriving (Generic, Show)
-
-instance FromJSON InstrumentType where
-
-  parseJSON = withText "InstrumentType" $ \t -> 
-    case t of
-         "BUNGEE_CAPPED" ->       return BUNGEE_CAPPED 
-         "BUNGEE_COMMODITIES" ->  return BUNGEE_COMMODITIES 
-         "BUNGEE_CURRENCIES" ->   return BUNGEE_CURRENCIES 
-         "BUNGEE_INDICES" ->      return BUNGEE_INDICES 
-         "COMMODITIES" ->         return COMMODITIES 
-         "CURRENCIES" ->          return CURRENCIES 
-         "INDICES" ->             return INDICES 
-         "OPT_COMMODITIES" ->     return OPT_COMMODITIES 
-         "OPT_CURRENCIES" ->      return OPT_CURRENCIES 
-         "OPT_INDICES" ->         return OPT_INDICES 
-         "OPT_RATES" ->           return OPT_RATES 
-         "OPT_SHARES" ->          return OPT_SHARES
-         "RATES" ->               return RATES 
-         "SECTORS" ->             return SECTORS 
-         "SHARES" ->              return SHARES 
-         "SPRINT_MARKET" ->       return SPRINT_MARKET 
-         "TEST_MARKET" ->         return TEST_MARKET 
-         "UNKNOWN" ->             return UNKNOWN_INSTRUMENT_TYPE
-         
 -- ^ Data on a position. 
 data Position = Position { contractSize :: Double -- ^ Size of the contract
                          , controlledRisk :: Bool -- ^ True if position is risk controlled
@@ -330,36 +252,6 @@ data PositionRequest = PositionRequest { currencyCode :: Text
 instance ToJSON PositionRequest
 
 instance FromJSON PositionRequest
-
-
--- ^ Specifies the expiry of the instrument which you wish to purchase. The date
--- (and sometimes time) at which a spreadbet or CFD will automatically close 
--- against some predefined market value should the bet remain open beyond its 
--- last dealing time. Some CFDs do not expire, and have an expiry of '-'. eg 
--- DEC-14, or DFB for daily funded bets
-data InstrumentExpiry = DFB
-                      | None
-                      | Expires Text Text
-                      deriving (Show)
-
-instance ToJSON InstrumentExpiry where
-
-  toJSON (Expires m d) = String $ m <> "-" <> d
-  toJSON None = String "-"
-  toJSON x = String . Text.pack . show $ x
-
-instance FromJSON InstrumentExpiry where
-
-  parseJSON = withText "InstrumentExpiry" $ \t -> 
-    case t of
-         "DFB" -> return DFB
-         "-"   -> return None
-         ie    -> do 
-                  let expiryParts = Text.splitOn "-" ie
-                  case expiryParts of
-                       [] -> fail "No expiry data provided"
-                       (month:year:_) -> return $ Expires month year
-                       (x:_) -> fail . Text.unpack $ "Only one part of expiry data provided: " <> x
 
 
 data TimeInForce = FILL_OR_KILL

@@ -15,17 +15,24 @@ import Network.Wreq
 import Prelude hiding (lookup)
 import Text.Regex.PCRE hiding (empty)
 
+
 -- | Returns the host url of the IG API server. 
 host :: Bool -- ^ If True then the demo address is returned, production otherwise
      -> Text -- ^ The host url
 host isDemo = if isDemo then demoPath
                         else productionPath
 
+
 productionPath :: Text
-productionPath = "https://api.ig.com/"
+productionPath = "https://api.ig.com"
+
 
 demoPath :: Text
-demoPath = "https://demo-api.ig.com/"
+demoPath = "https://demo-api.ig.com"
+
+
+type Epic = Text
+
 
 -- | Represents the different types of error response returned by the api. The
 -- definitions are lifted directly from https://labs.ig.com/rest-trading-api-reference/service-detail?id=534
@@ -35,6 +42,7 @@ data ApiError = AccountDisabled -- ^ The user's preferred account is disabled.
               | ApiKeyMissing -- ^ The api key was not provided
               | ApiKeyRevoked -- ^ The provided api key was not accepted because it has been revoked
               | ApiKeyUnaccepted -- ^ The provided api key was unaccepted. 
+              | BadPayload Text -- ^ The application could not decode the payload returned by the api
               | CannotUseApi -- ^ The account is not allowed to log into public API. Please use the web platform.
               | CurrencyCodeRequired -- ^ The currency code field was null or missing and is required
               | CredentialsMissing -- ^ The user has not provided all required security credentials

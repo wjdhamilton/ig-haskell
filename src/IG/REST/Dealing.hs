@@ -21,8 +21,8 @@ confirms :: AuthHeaders -> DealReference -> IO (Either ApiError DealConfirmation
 confirms a@(AuthHeaders _ _ _ isDemo) ref = do
   let opts = buildHeaders "1" a
   let reference = dealReference (ref :: DealReference)
-  let confirmPath = restPathSegment <> "confirms/"
-  let url = Text.unpack $ host isDemo <> confirmPath <> "/" <> reference
+  let confirmPath = restPathSegment </> "confirms" </> mempty
+  let url = Text.unpack $ host isDemo </> confirmPath </> reference
   apiRequest (getWith opts url)
          
   
@@ -31,7 +31,7 @@ allPositions :: AuthHeaders -> IO (Either ApiError PositionsResponse)
 allPositions a@(AuthHeaders _ _ _ isDemo) = do
   let opts = buildHeaders "2" a
   let positionsPath = "positions"
-  let url = Text.unpack $ host isDemo <> restPathSegment <> positionsPath
+  let url = Text.unpack $ host isDemo </> restPathSegment </> positionsPath
   apiRequest $ getWith opts url
 
 
@@ -39,12 +39,12 @@ allPositions a@(AuthHeaders _ _ _ isDemo) = do
 positionDetails :: AuthHeaders -> Text -> IO (Either ApiError PositionData)
 positionDetails a@(AuthHeaders _ _ _ isDemo) id = do
   let opts = buildHeaders "2" a
-  let url = Text.unpack $ host isDemo <> restPathSegment <> "positions/" <> id
+  let url = Text.unpack $ host isDemo </> restPathSegment </> "positions" </> id
   apiRequest $ getWith opts url
 
 
 otcPath :: Bool -> String
-otcPath isDemo = Text.unpack $ host isDemo <> restPathSegment <> "positions/otc"
+otcPath isDemo = Text.unpack $ host isDemo </> restPathSegment </> "positions/otc"
 
 -- | Close one position
 closePosition :: AuthHeaders -> PositionData -> CloseOptions -> IO (Either ApiError DealReference)
@@ -110,12 +110,12 @@ createSprintPosition a@(AuthHeaders _ _ _ isDemo) = undefined
 getWorkingOrders :: AuthHeaders -> IO (Either ApiError WorkingOrdersResponse)
 getWorkingOrders a@(AuthHeaders _ _ _ isDemo) = do
   let opts = buildHeaders "2" a
-  let url = Text.unpack $ host isDemo <> restPathSegment <> "/workingorders"
+  let url = Text.unpack $ host isDemo </> restPathSegment </> "workingorders"
   apiRequest $ getWith opts url
 
 
 otcWorkingOrderPath isDemo mId =
-  host isDemo <> restPathSegment <> "/workingorders/otc/" <> id
+  host isDemo </> restPathSegment </> "workingorders" </> "otc" </> id
   where id = fromMaybe "" mId
 
 
