@@ -195,6 +195,7 @@ data RollOverDetails = RollOverDetails { lastRolloverTime :: DealTime
 instance FromJSON RollOverDetails
 
 
+-- | Hours that a market is open for
 data MarketHours = MarketHours { openTime :: DealTime
                                , closeTime :: DealTime
                                } deriving (Generic, Show)
@@ -203,6 +204,7 @@ data MarketHours = MarketHours { openTime :: DealTime
 instance FromJSON MarketHours
 
 
+-- | The unit of measure that applies to a given datum
 data UnitDimension = PERCENTAGE
                    | POINTS
                    deriving (Generic, Show)
@@ -211,6 +213,7 @@ data UnitDimension = PERCENTAGE
 instance FromJSON UnitDimension
 
 
+-- | Properties of a Deposit band for a given instrument
 data DepositBand = DepositBand { currency :: Text
                                , margin :: Double
                                , max :: Double
