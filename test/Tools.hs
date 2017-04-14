@@ -21,7 +21,7 @@ loginToApi = do
 
 getCredentials :: IO (Text, LoginBody)
 getCredentials = do
-  creds <- readFile "test/config.json"
+  creds <- readFile "ig_creds.json"
   let apiKey = Tools.getApiKey creds
   let identifier = fromJust $ creds ^? key "username" . _String
   let password = fromJust $ creds ^? key "password" . _String

@@ -19,7 +19,7 @@ cabal.sandbox.config
 .stack-work/
 cabal.project.local
 .HTF/
-config.json
+ig_creds.json
 highlight.js
 style.css
 TestScript.hs
