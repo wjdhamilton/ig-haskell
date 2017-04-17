@@ -12,13 +12,13 @@ import IG
 import IG.REST
 import IG.REST.Dealing
 import IG.REST.Dealing.Types
+import IG.REST.Login
 import Test.Hspec
-import Tools
 
 -- | Entry point for specs
 spec :: Spec
 spec = do
-  (headers, loginResponse) <- loginToApi
+  (headers, loginResponse) <- runIO $ loginToApi True
   afterAll_ (closeAll headers) (descriptions headers)
 
 

@@ -22,30 +22,43 @@ import Data.Either.Unwrap
 import Data.Maybe
 
 
+data Credentials = Credentials { demo :: Credential
+                   , production :: Credential
+                   } deriving (Generic, Show)
+
+
+instance FromJSON Credentials
+
+
+data Credential = Credential { apiKey :: Text
+                  , username :: Text
+                  , pass :: Text
+                  } deriving (Generic, Show)
+
+instance FromJSON Credential
+
+
 loginToApi isDemo = do
-    (apiKey, loginDetails) <- getCredentials
-    login isDemo apiKey loginDetails
+    (apiKey, loginDetails) <- getCredentials isDemo
+    response <- login isDemo apiKey loginDetails
+    return $ fromRight response
 
 
-getCredentials :: IO (Text, LoginBody)
-getCredentials = do
-  creds <- readFile "test/config.json"
-  let apiKey = getApiKey creds
-  let identifier = fromJust $ creds ^? key "username" . _String
-  let password = fromJust $ creds ^? key "password" . _String
-  let loginDetails = LoginBody False identifier password
-  return $ (apiKey, loginDetails)
+getCredentials :: Bool -> IO (Text, LoginBody)
+getCredentials isDemo = do
+  file <- readFile "ig_creds.json"
+  let allCreds = BL.pack file
+  let creds = if isDemo then demo . fromJust . decode $ allCreds
+                        else production . fromJust . decode $ allCreds
+  let a = apiKey creds
+  let identifier = username creds
+  let p = pass creds
+  let loginDetails = LoginBody False identifier p
+  return $ (a, loginDetails)
 
 
-getApiKey :: String -> Text
-getApiKey creds = fromJust $ creds ^? key "apiKey" . _String
--- Actions to create: 
--- Log in
--- Log out
--- Session details
--- switch account
--- get encryption key
--- refresh the token
+getKey :: String -> Text -> Text
+getKey creds k = fromJust $ creds ^? key k . _String
 
 -- | Represents the payload returned by the API when the user successfully logs
 -- in.
