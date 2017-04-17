@@ -73,7 +73,7 @@ apiError :: Response BL.ByteString -> Map ApiError (IO a)-> IO a
 apiError resp responseMap  = 
   let errorCode = decodeError $ resp ^. responseBody in
     case lookup errorCode responseMap of
-         Nothing -> do error $ show errorCode
+         Nothing -> error $ show errorCode
          Just e -> e
 
 

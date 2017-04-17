@@ -14,7 +14,6 @@ import IG.REST.Login
 import System.IO
 import System.Directory
 import Test.Hspec
-import Tools
 
 spec :: Spec
 spec = do
@@ -26,7 +25,7 @@ spec = do
 loginSpec :: Spec
 loginSpec = do
   context "with valid credentials" $ do
-    (apiKey, loginDetails) <- runIO Tools.getCredentials
+    (apiKey, loginDetails) <- runIO $ getCredentials True
     response <- runIO $ login True apiKey loginDetails
 
     it "should return Right" $ do
@@ -42,8 +41,7 @@ loginSpec = do
 
 getBadCredentials :: IO (Text, LoginBody)
 getBadCredentials = do
-  creds <- readFile "test/config.json"
-  let apiKey = Tools.getApiKey creds
+  (apiKey, _) <- getCredentials True
   let username = "evil"
   let password = "bad"
   let loginDetails = LoginBody False username password
@@ -52,7 +50,7 @@ getBadCredentials = do
 
 logoutSpec :: Spec
 logoutSpec = do
-  (headers, _) <- Tools.loginToApi
+  (headers, _) <- runIO $ loginToApi True
   it "should logout without errors" $ do
     logout headers `shouldReturn` Right ()
 
@@ -60,7 +58,7 @@ logoutSpec = do
 -- | Note: Requires a login with two different test accounts attached to it. 
 switchAccountSpec :: Spec
 switchAccountSpec = do
-  (headers, loginResponse) <- Tools.loginToApi
+  (headers, loginResponse) <- runIO $ loginToApi True
   let currentAccount = currentAccountId loginResponse
   let otherAccounts = filter (\accId -> accId /= currentAccount) 
                     . map (\acc -> accountId acc) 

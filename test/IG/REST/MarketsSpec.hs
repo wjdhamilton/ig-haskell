@@ -21,11 +21,10 @@ import IG.REST.Markets.Types
 import System.IO
 import System.Directory
 import Test.Hspec
-import Tools
 
 spec :: Spec
 spec = do
-  (headers, lR) <- Tools.loginToApi
+  (headers, lR) <- runIO $ loginToApi True
   describe "navigateMarkets" $ navigateMarketsSpec headers 
   describe "markets" $ marketsSpec headers 
   describe "historical data" $ historicalDataSpec headers
