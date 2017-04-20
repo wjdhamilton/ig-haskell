@@ -28,12 +28,16 @@ import Control.Lens
 import Control.Monad
 import Control.Monad.Trans
 import Control.Monad.Trans.Either
-import Data.ByteString.Char8 as BS hiding (last)
+import Data.ByteString.Char8 (ByteString)
+import qualified Data.ByteString.Char8 as BS hiding (last)
 import qualified Data.ByteString.Lazy.Char8 as BL hiding (last)
 import Data.List as List
 import Data.Maybe
+import Data.Map.Strict (Map)
+import qualified Data.Map.Strict as Map 
 import Data.Monoid
-import Data.Text as Text hiding (last)
+import Data.Text (Text)
+import qualified Data.Text as Text 
 import Data.Text.Encoding as TE
 import IG
 import IG.REST
@@ -116,7 +120,7 @@ checkStatus response f = do
   let body = Client.responseBody response
   handshake <- brRead body
   case statusCode . responseStatus $ response of
-       200 -> return $ mapErrorToResponseCode (BL.fromStrict handshake) (f handshake)
+       200 -> return $ decodeDataFeed (BL.fromStrict handshake) (f handshake)
        _   -> return $ Left (Other $ responseStatus response)
 
 
@@ -146,8 +150,8 @@ data RealTimeError = InvalidLogin
                    deriving (Eq, Show)
 
 
-mapErrorToResponseCode :: BL.ByteString -> a -> Either RealTimeError a
-mapErrorToResponseCode s x = let code = lsResponseCode (BL.toStrict s) in
+decodeDataFeed :: BL.ByteString -> a -> Either RealTimeError a
+decodeDataFeed s x = let code = lsResponseCode (BL.toStrict s) in
                              case code of
                                   "OK" -> Right $ x
                                   "1"  -> Left InvalidLogin
@@ -176,7 +180,7 @@ lsResponseCode :: BS.ByteString -> Text
 lsResponseCode body = case Prelude.head readError of
                            "OK" -> "OK"
                            "ERROR" -> List.last $ List.take 2 readError
-  where readError = splitOn "\r\n" . Text.strip . TE.decodeUtf8 $ body
+  where readError = Text.splitOn "\r\n" . Text.strip . TE.decodeUtf8 $ body
 
 
 data FeedState = Loop
@@ -235,7 +239,7 @@ rebindSession id sess_url host channel timeout = do
 sessionData :: BS.ByteString -> (Text, Text, Int)
 sessionData r = (sess_id, sess_url, timeout) 
   where body = Text.lines . Text.pack . BS.unpack $ r
-        extractArg = last . splitOn ":" . Text.strip 
+        extractArg = last . Text.splitOn ":" . Text.strip 
         sess_id  = case atMay body 1 of
                         Just id -> 
                           extractArg id
@@ -260,7 +264,7 @@ control url atts schema = do
   let body = response ^. Wreq.responseBody
   let status = response ^. Wreq.responseStatus 
   case status ^. Wreq.statusCode of
-       200 -> return $ mapErrorToResponseCode body ()
+       200 -> return $ decodeDataFeed body ()
        _ -> return $ Left (Other status)
 
 

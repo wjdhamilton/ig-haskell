@@ -39,7 +39,7 @@ data StreamOp = Add
               | AddSilent 
               | Start 
               | Delete
-              deriving (Show)
+              deriving (Eq, Ord, Show)
 
 instance ControlAttribute StreamOp where
   encode = Text.toLower . toText
@@ -47,7 +47,7 @@ instance ControlAttribute StreamOp where
 
 data SubMode = Merge
              | Distinct
-             deriving (Show)
+             deriving (Eq, Ord, Show)
 
 instance ControlAttribute SubMode
 
@@ -89,7 +89,7 @@ schemaParams vals = "LS_schema" := encVals vals
 
 data Frequency = Unfiltered
                | Maximum Int
-               deriving (Show)
+               deriving (Eq, Ord, Show)
 
 
 instance ControlAttribute Frequency
@@ -106,7 +106,7 @@ data MarketFields = Bid
                   | MarketDelay
                   | MarketState
                   | UpdateTime
-                  deriving (Show)
+                  deriving (Eq, Ord, Show)
 
 
 instance ControlAttribute MarketFields
@@ -116,7 +116,7 @@ instance ControlAttribute MarketFields
 data SprintFields = StrikePrice
                   | SprintMarketState
                   | Odds
-                  deriving (Show)
+                  deriving (Eq, Ord, Show)
 
 
 instance ControlAttribute SprintFields
@@ -135,7 +135,7 @@ data AccountFields = Pnl
                    | AvailableToDeal
                    | Equity
                    | EquityUsed
-                   deriving (Show)
+                   deriving (Eq, Ord, Show)
 
 instance ControlAttribute AccountFields
 
@@ -144,7 +144,7 @@ instance ControlAttribute AccountFields
 data TradeFields = Confirms
                  | Opu
                  | Wou
-                 deriving (Show)
+                 deriving (Eq, Ord, Show)
 
 
 instance ControlAttribute TradeFields
@@ -172,12 +172,12 @@ data ChartFields = Ltv
                  | LtpClose
                  | ConsEnd
                  | ConsTickCount
-                 deriving (Show)
+                 deriving (Eq, Ord, Show)
 
 instance ControlAttribute ChartFields
 
 
-data TimeSlice = Second | Minute1 | Minute5 | Hour deriving (Show)
+data TimeSlice = Second | Minute1 | Minute5 | Hour deriving (Eq, Ord, Show)
 
 
 instance ControlAttribute TimeSlice
@@ -194,7 +194,7 @@ data TickFields = Ofr
                 | TDayPercChgMid
                 | TDayHigh
                 | TDayLow
-                deriving (Show)
+                deriving (Eq, Ord, Show)
 
 
 instance ControlAttribute TickFields where
@@ -214,7 +214,7 @@ instance ControlAttribute TickFields where
 
 data SnapshotAtt = UseSnapshot Bool
                  | Length Int
-                 deriving (Show)
+                 deriving (Eq, Ord, Show)
 
 
 instance ControlAttribute SnapshotAtt where
@@ -222,7 +222,7 @@ instance ControlAttribute SnapshotAtt where
   encode (Length n)            = toText n
 
 
-class (Show a) => ControlAttribute a where
+class (Eq a, Ord a, Show a) => ControlAttribute a where
   encode :: a -> Text
   encode = Text.toUpper . snakeCase . toText
 
