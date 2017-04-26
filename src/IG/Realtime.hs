@@ -180,6 +180,7 @@ lsResponseCode :: BS.ByteString -> Text
 lsResponseCode body = case Prelude.head readError of
                            "OK" -> "OK"
                            "ERROR" -> List.last $ List.take 2 readError
+                           _ -> "UNKNOWN"
   where readError = Text.splitOn "\r\n" . Text.strip . TE.decodeUtf8 $ body
 
 
@@ -260,6 +261,7 @@ control url atts schema = do
   let opts = Wreq.defaults & Wreq.header "Content-Type" .~ ["application/x-www-form-urlencoded"]
   let payload = lsBody atts schema
   let controlUrl = Text.unpack $ url <> "/lightstreamer/control.txt"
+  -- TODO this should use try since postWith can throw an error (or is there a lib option? check)
   response <- Wreq.postWith opts controlUrl payload
   let body = response ^. Wreq.responseBody
   let status = response ^. Wreq.responseStatus 

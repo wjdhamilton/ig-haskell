@@ -11,12 +11,12 @@ import qualified Data.Text as Text
 import Network.Wreq
 
 -- | The different attributes that are understood by the IG Realtime system
-data ControlProperty = SessionId Text
-                     | Table Int
-                     | Op StreamOp
-                     | DataAdapter Text
+data ControlProperty = SessionId Text -- ^ Mandatory. The session id
+                     | Table Int -- ^ Mandatory. The number of a table to be created or changed
+                     | Op StreamOp -- ^ Mandatory. 
+                     | DataAdapter Text -- ^ Usually not required
                      | Selector Text
-                     | Mode SubMode
+                     | Mode SubMode -- ^ Mandatory. Should be Merge to start a new feed
                      | ReqBufferSize Int
                      | ReqMaxFrequency Frequency
                      | Snapshot SnapshotAtt
@@ -40,6 +40,7 @@ data StreamOp = Add
               | Start 
               | Delete
               deriving (Eq, Ord, Show)
+
 
 instance ControlAttribute StreamOp where
   encode = Text.toLower . toText
@@ -152,7 +153,7 @@ instance ControlAttribute TradeFields
 
 data ChartFields = Ltv
                  | Ttv
-                 | Utm
+                 | Utm -- ^ Update time as milliseconds from epoch
                  | DayOpenMid
                  | DayNetChgMid
                  | DayPercChgMid
@@ -180,7 +181,10 @@ instance ControlAttribute ChartFields
 data TimeSlice = Second | Minute1 | Minute5 | Hour deriving (Eq, Ord, Show)
 
 
-instance ControlAttribute TimeSlice
+instance ControlAttribute TimeSlice where
+  encode Minute1 = "1MINUTE"
+  encode Minute5 = "5MINUTE"
+  encode x       = Text.toUpper . Text.pack $ show x
 
 
 data TickFields = Ofr
