@@ -55,7 +55,6 @@ test-suite ig-haskell-test
   hs-source-dirs:      test
   other-modules:     IG.REST.DealingSpec
                      , IG.REST.LoginSpec
-                     , IG.RealtimeSpec
                      , IGSpec
                      , IG.REST.MarketsSpec
   main-is:             Spec.hs

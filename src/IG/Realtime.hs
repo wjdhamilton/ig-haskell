@@ -19,7 +19,7 @@
 -- id and session url using a control connection. The control connection is run
 -- from a different thread than that which consumes the subscription. 
 
-module IG.Realtime  where
+module IG.Realtime (openSession, control, RealTimeError(..)) where
 
 import Control.Concurrent
 import Control.Concurrent.STM as STM
