@@ -19,7 +19,7 @@
 -- id and session url using a control connection. The control connection is run
 -- from a different thread than that which consumes the subscription. 
 
-module IG.Realtime (openSession, control, RealTimeError(..)) where
+module IG.Realtime (openSession, control, RealTimeError(..), SessId, SessURL, RealTimeURL) where
 
 import Control.Concurrent
 import Control.Concurrent.STM as STM
@@ -123,7 +123,7 @@ checkStatus response f = do
        200 -> return $ decodeDataFeed (BL.fromStrict handshake) (f handshake)
        _   -> return $ Left (Other $ responseStatus response)
 
-
+-- | The different errors that the Lighstreamer server can throw
 data RealTimeError = InvalidLogin
                    | UnavailableAdapterSet
                    | LicensedMaxSessionsReached
@@ -256,7 +256,11 @@ sessionData r = (sess_id, sess_url, timeout)
 {--------------------------- Control Messages ----------------------------------}
 
 
-control :: Text -> [ControlProperty] -> Schema -> IO (Either RealTimeError ())
+-- | Send a control message to the Lightstreamer server
+control :: Text -- ^ The url obtained from openSession
+        -> [ControlProperty] -- ^ The list of control properties. See docs for required properties
+        -> Schema -- ^ The schema to use
+        -> IO (Either RealTimeError ())
 control url atts schema = do
   let opts = Wreq.defaults & Wreq.header "Content-Type" .~ ["application/x-www-form-urlencoded"]
   let payload = lsBody atts schema
