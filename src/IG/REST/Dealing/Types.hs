@@ -265,6 +265,114 @@ instance ToJSON TimeInForce
 instance FromJSON TimeInForce
 
 
+-- | Default PositionRequest with almost all options unfulfilled. 
+-- Options are as follows:
+--  currencyCode: GBP
+--  dealReference: Nothing
+--  direction: Buy
+--  epic: "" (empty string)
+--  forceOpen: True
+--  guaranteedStop: False
+--  level: 0
+--  limitDistance: Nothing
+--  limitLevel: Nothing
+--  orderType: Market
+--  quoteId: Nothing
+--  size: 0
+--  stopLevel: Nothing
+--  timeInForce: FILL_OR_KILL
+--  trailingStop: False
+--  trailingStopIncrement: Nothing
+defaultPR :: PositionRequest
+defaultPR = PositionRequest { currencyCode = "GBP" 
+                            , dealReference = Nothing 
+                            , direction = BUY 
+                            , epic = "" 
+                            , expiry = None 
+                            , forceOpen = True 
+                            , guaranteedStop = False 
+                            , level = Nothing 
+                            , limitDistance = Nothing 
+                            , limitLevel = Nothing
+                            , orderType = MARKET
+                            , quoteId = Nothing 
+                            , size = 0 
+                            , stopLevel = Nothing 
+                            , timeInForce = FILL_OR_KILL
+                            , trailingStop = False
+                            , trailingStopIncrement = Nothing
+                            }
+
+type PositionReqBuilder a = a -> PositionRequest -> PositionRequest
+
+setCurrencyCode :: PositionReqBuilder Text
+setCurrencyCode c p = p { currencyCode = c }
+
+
+setDealReference :: PositionReqBuilder Text
+setDealReference r p = p { dealReference = Just r }
+
+
+setDirection :: PositionReqBuilder Direction
+setDirection d p = p { direction = d }
+
+
+setEpic :: PositionReqBuilder Text
+setEpic e p = p { epic = e }
+
+
+setExpiry :: PositionReqBuilder InstrumentExpiry
+setExpiry de p = p { expiry = de }
+
+
+setForceOpen :: PositionReqBuilder Bool
+setForceOpen f p = p { forceOpen = f }
+
+
+setGuaranteedStop :: PositionReqBuilder Bool
+setGuaranteedStop gs p = p { guaranteedStop = gs }
+
+
+setLevel :: PositionReqBuilder Double
+setLevel l p = p { level = Just l }
+
+
+setLimitDistance :: PositionReqBuilder Double
+setLimitDistance d p = p { limitDistance = Just d }
+
+
+setLimitLevel :: PositionReqBuilder Double
+setLimitLevel l p = p { limitLevel = Just l }
+
+
+setOrderType :: PositionReqBuilder OrderType
+setOrderType ot p = p { orderType = ot }
+
+
+setQuoteId :: PositionReqBuilder Text
+setQuoteId id p = p { quoteId = Just id }
+
+
+setSize :: PositionReqBuilder Double
+setSize n p = p { size = n }
+
+
+setStopLevel :: PositionReqBuilder Double
+setStopLevel l p = p { stopLevel = Just l }
+
+
+setTimeInForce :: PositionReqBuilder TimeInForce
+setTimeInForce tf p = p { timeInForce = tf }
+
+
+setTrailingStop :: PositionReqBuilder Bool
+setTrailingStop st p = p { trailingStop = st }
+
+
+setTrailingStopIncrement :: PositionReqBuilder Double
+setTrailingStopIncrement i p = p { trailingStopIncrement = Just i }
+
+
 -- | Describes the order level model to be used for a position operation
 data OrderType = LIMIT  -- ^ Limit orders get executed at the price seen by IG at
                         -- the moment of booking a trade
@@ -280,7 +388,9 @@ data OrderType = LIMIT  -- ^ Limit orders get executed at the price seen by IG a
                | STOP   -- ^ A Stop order. Only appears in api docs under working orders
                deriving (Generic, Show)
 
+
 instance ToJSON OrderType
+
 
 instance FromJSON OrderType
 
