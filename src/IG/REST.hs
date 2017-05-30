@@ -84,7 +84,7 @@ formats = [ "%H:%M:%S%Q", "%H:%M" ]
 dateFormats = Prelude.map (iso8601DateFormat . Just) formats
 
 data UTCDate = UTCDate UTCTime
-             deriving (Show)
+             deriving (Eq, Ord, Show)
 
 
 instance FromJSON UTCDate where
