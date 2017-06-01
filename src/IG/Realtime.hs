@@ -267,7 +267,6 @@ control url atts schema = do
   let payload = lsBody atts schema
   let controlUrl = Text.unpack $ url <> "/lightstreamer/control.txt"
   -- TODO this should use try since postWith can throw an error (or is there a lib option? check)
-  print payload
   response <- Wreq.postWith opts controlUrl payload
   let body = response ^. Wreq.responseBody
   let status = response ^. Wreq.responseStatus 
