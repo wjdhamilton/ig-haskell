@@ -188,7 +188,7 @@ data FeedState = Loop
                | Probe
                | End
                | Timeout
-               | Datum ByteString
+               | Datum Text
 
 
 timeoutFlag = "TIMEOUT"
@@ -216,7 +216,7 @@ listen response sess_id sess_url host channel time = do
               Probe   -> do
                 listen response sess_id sess_url host channel time
               Datum d -> do
-                atomically $ writeTChan channel (TE.decodeUtf8 datum)
+                atomically $ writeTChan channel d
                 listen response sess_id sess_url host channel time
 
 
@@ -228,7 +228,8 @@ getFeedState content =
        "END"     -> End
        "LOOP"    -> Loop
        "TIMEOUT" -> Timeout
-       _         -> Datum content
+       _         -> Datum $ noWhiteSpace content
+  where noWhiteSpace = Text.strip . TE.decodeUtf8
 
 
 rebindSession :: Text -> Text -> Text -> TChan Text -> Int -> IO ()
