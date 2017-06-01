@@ -198,26 +198,21 @@ timeoutFlag = "TIMEOUT"
 listen :: Response BodyReader -> Text -> Text -> Text -> TChan Text -> Int -> IO ()
 listen response sess_id sess_url host channel time = do
   let body = Client.responseBody response
-  let t = time * 1000
-  mDatum <- timeout t (brRead body)
-  case mDatum of 
-       Nothing ->
-         atomically $ do writeTChan channel timeoutFlag
-       Just datum ->
-         case getFeedState datum of 
-              Timeout -> do
-                atomically $ writeTChan channel "LS Stream timed out"
-                responseClose response
-              Loop    ->  
-                rebindSession sess_id sess_url host channel time
-              End     -> do
-                atomically $ writeTChan channel "Stream exhausted"
-                responseClose response
-              Probe   -> do
-                listen response sess_id sess_url host channel time
-              Datum d -> do
-                atomically $ writeTChan channel d
-                listen response sess_id sess_url host channel time
+  datum <- brRead body
+  case getFeedState datum of 
+       Timeout -> do
+         atomically $ writeTChan channel "LS Stream timed out"
+         responseClose response
+       Loop    ->  
+         rebindSession sess_id sess_url host channel time
+       End     -> do
+         atomically $ writeTChan channel "Stream exhausted"
+         responseClose response
+       Probe   -> do
+         listen response sess_id sess_url host channel time
+       Datum d -> do
+         atomically $ writeTChan channel d
+         listen response sess_id sess_url host channel time
 
 
 getFeedState :: ByteString -> FeedState
