@@ -5,9 +5,9 @@ import Data.List as List
 import Data.List.Split
 import Data.Monoid
 import Data.Text (Text)
+import qualified Data.Text as Text
 import IG
 import Flow
-import qualified Data.Text as Text
 import Network.Wreq
 
 -- | The different attributes that are understood by the IG Realtime system
@@ -236,9 +236,7 @@ toText = Text.pack . show
 
 
 snakeCase :: Text -> Text
-snakeCase t = t
-            |> Text.toLower
-            |> Text.unpack
-            |> splitWhen isUpper
-            |> intercalate "_"
-            |> Text.pack
+snakeCase t =  Text.pack . tail . snake . Text.unpack $ t
+  where snake []     = []
+        snake (c:cs) = if isUpper c then '_' : c : snake cs
+                                    else c : snake cs

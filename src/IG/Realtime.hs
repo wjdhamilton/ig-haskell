@@ -137,7 +137,7 @@ data RealTimeError = InvalidLogin
                    | TableNotFound
                    | BadItemGroupName
                    | BadItemGroupNameForSchema
-                   | BadFieldSchema
+                   | BadFieldSchemaName
                    | SubscriptionModeNotAllowed
                    | BadSelectorName
                    | NoUnfilteredDispatchFreq
@@ -165,7 +165,7 @@ decodeDataFeed s x = let code = lsResponseCode (BL.toStrict s) in
                                   "19" -> Left TableNotFound 
                                   "21" -> Left BadItemGroupName
                                   "22" -> Left BadItemGroupNameForSchema
-                                  "23" -> Left BadFieldSchema
+                                  "23" -> Left BadFieldSchemaName
                                   "24" -> Left SubscriptionModeNotAllowed
                                   "25" -> Left BadSelectorName
                                   "26" -> Left NoUnfilteredDispatchFreq
@@ -177,16 +177,17 @@ decodeDataFeed s x = let code = lsResponseCode (BL.toStrict s) in
 
 
 lsResponseCode :: BS.ByteString -> Text
-lsResponseCode body = case Prelude.head readError of
-                           "OK" -> "OK"
-                           "ERROR" -> List.last $ List.take 2 readError
-                           _ -> "UNKNOWN"
-  where readError = Text.splitOn "\r\n" . Text.strip . TE.decodeUtf8 $ body
+lsResponseCode body = case message of
+                           "ERROR" -> List.last $ List.take 2 readBody
+                           _ -> message
+  where readBody = Text.splitOn "\r\n" . Text.strip . TE.decodeUtf8 $ body
+        message = Prelude.head readBody 
 
 
 data FeedState = Loop
                | Probe
                | End
+               | Timeout
                | Datum ByteString
 
 
@@ -204,6 +205,9 @@ listen response sess_id sess_url host channel time = do
          atomically $ do writeTChan channel timeoutFlag
        Just datum ->
          case getFeedState datum of 
+              Timeout -> do
+                atomically $ writeTChan channel "LS Stream timed out"
+                responseClose response
               Loop    ->  
                 rebindSession sess_id sess_url host channel time
               End     -> do
@@ -220,10 +224,11 @@ getFeedState :: ByteString -> FeedState
 getFeedState content = 
   let message = lsResponseCode content in
   case message of
-       "PROBE" -> Probe
-       "END"   -> End
-       "LOOP"  -> Loop
-       _       -> Datum content
+       "PROBE"   -> Probe
+       "END"     -> End
+       "LOOP"    -> Loop
+       "TIMEOUT" -> Timeout
+       _         -> Datum content
 
 
 rebindSession :: Text -> Text -> Text -> TChan Text -> Int -> IO ()
@@ -266,6 +271,7 @@ control url atts schema = do
   let payload = lsBody atts schema
   let controlUrl = Text.unpack $ url <> "/lightstreamer/control.txt"
   -- TODO this should use try since postWith can throw an error (or is there a lib option? check)
+  print payload
   response <- Wreq.postWith opts controlUrl payload
   let body = response ^. Wreq.responseBody
   let status = response ^. Wreq.responseStatus 
