@@ -17,6 +17,8 @@ library
   hs-source-dirs:      src
   exposed-modules:     IG
                      , IG.REST
+                     , IG.REST.Accounts
+                     , IG.REST.Accounts.Types
                      , IG.REST.Login
                      , IG.REST.Dealing
                      , IG.REST.Dealing.Types
