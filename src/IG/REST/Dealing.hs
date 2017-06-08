@@ -35,8 +35,10 @@ allPositions a@(AuthHeaders _ _ _ isDemo) = do
   apiRequest $ getWith opts url
 
 
--- | Return an open position for the active account by deal identifier
-positionDetails :: AuthHeaders -> Text -> IO (Either ApiError PositionData)
+-- | Return the details of an open position for the active account using its deal identifier
+positionDetails :: AuthHeaders -- ^ AuthHeaders. See "IG.REST.Login"
+                -> Text -- ^ The deal identifier. See "IG.REST.Dealing.Types"
+                -> IO (Either ApiError PositionData)
 positionDetails a@(AuthHeaders _ _ _ isDemo) id = do
   let opts = v2 a
   let url = Text.unpack $ host isDemo </> restPathSegment </> "positions" </> id
