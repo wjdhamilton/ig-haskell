@@ -47,11 +47,11 @@ otcPath :: Bool -> String
 otcPath isDemo = Text.unpack $ host isDemo </> restPathSegment </> "positions/otc"
 
 -- | Close one position
-closePosition :: AuthHeaders -> PositionData -> CloseOptions -> IO (Either ApiError DealReference)
-closePosition a@(AuthHeaders _ _ _ isDemo) p options = do
+closePosition :: AuthHeaders -> ClosePositionRequest -> IO (Either ApiError DealReference)
+closePosition a@(AuthHeaders _ _ _ isDemo) cpr = do
   let opts = v1 a & header "_method" .~ ["DELETE"]
   let url = otcPath isDemo
-  let payload = toJSON $ toClosePositionRequest p options 
+  let payload = toJSON cpr
   apiRequest $ postWith opts url payload
 
 

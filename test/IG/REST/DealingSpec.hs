@@ -92,10 +92,11 @@ closePositionSpec headers =
       confirmation <- lift $ confirms headers ref
       conf <- hoistEither confirmation
       let id = dealId (conf :: DealConfirmation)
-      position <- lift $ positionDetails headers id
-      pos <- hoistEither position
+      p <- lift $ positionDetails headers id
+      pos <- hoistEither p
       let opts = CloseOptions Nothing MARKET Nothing Nothing Nothing Nothing Nothing
-      lift $ closePosition headers pos opts 
+      let cpr = toClosePositionRequest pos opts
+      lift $ closePosition headers cpr
     isRight closeRef `shouldBe` True
 
 
@@ -182,5 +183,5 @@ closeAll h = do
 
 
 closeRequest :: AuthHeaders -> PositionData -> IO (Either ApiError DealReference)
-closeRequest h pos = closePosition h pos options
+closeRequest h pos = closePosition h $ toClosePositionRequest pos options
   where options = CloseOptions Nothing MARKET Nothing Nothing Nothing Nothing Nothing
