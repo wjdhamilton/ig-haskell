@@ -44,6 +44,7 @@ library
                      , scientific
                      , split
                      , stm
+                     , string-conversions
                      , text
                      , time
                      , unordered-containers

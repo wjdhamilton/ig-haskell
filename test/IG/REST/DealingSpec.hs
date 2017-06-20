@@ -6,6 +6,7 @@ module IG.REST.DealingSpec (spec) where
 import Control.Monad.Trans
 import Control.Monad.Trans.Either
 import Data.Either
+import Data.Either.Unwrap hiding (isRight)
 import Data.Monoid
 import Flow
 import IG
@@ -18,7 +19,8 @@ import Test.Hspec
 -- | Entry point for specs
 spec :: Spec
 spec = do
-  (headers, loginResponse) <- runIO $ loginToApi True
+  eh <- runIO $ loginToApi True
+  let (headers, loginResponse) = fromRight eh 
   afterAll_ (closeAll headers) (descriptions headers)
 
 
