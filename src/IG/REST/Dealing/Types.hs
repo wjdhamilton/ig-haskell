@@ -36,7 +36,7 @@ data DealConfirmation = DealConfirmation { date :: UTCDate -- ^ Date and time of
                                          , stopDistance :: Maybe Double -- ^ Stop distance
                                          , stopLevel :: Maybe Double -- ^ Stop level
                                          , trailingStop :: Bool -- ^ True if trailing stop
-                                         } deriving (Generic, Show)
+                                         } deriving (Eq, Generic, Ord, Show)
 
 instance FromJSON DealConfirmation
 
@@ -45,7 +45,7 @@ instance FromJSON DealConfirmation
 data Deal = Deal { dealId :: String
                  , status :: Status
                  }
-          deriving (Show, Generic)
+          deriving (Eq, Ord, Show, Generic)
 
 instance FromJSON Deal where
   
@@ -58,7 +58,7 @@ instance FromJSON Deal where
 -- | Indicates the status of a deal
 data DealStatus = ACCEPTED
                 | REJECTED
-                deriving (Generic, Show)
+                deriving (Eq, Generic, Ord, Show)
 
 instance FromJSON DealStatus
 
@@ -70,7 +70,7 @@ data Status = AMENDED
             | OPEN
             | OPENED
             | PARTIALLY_CLOSED
-            deriving (Generic, Show)
+            deriving (Eq, Generic, Ord, Show)
 
 instance FromJSON Status
 
@@ -79,7 +79,7 @@ instance FromJSON Status
 -- = bearish. I'm sure you get the picture. 
 data Direction = BUY
                | SELL
-               deriving (Eq, Generic, Show)
+               deriving (Eq, Generic, Ord, Show)
 
 instance FromJSON Direction
 
@@ -145,7 +145,7 @@ data StatusReason = ACCOUNT_NOT_ENABLED_TO_TRADING -- ^ The account is not enabl
                   | TRAILING_STOP_NOT_ALLOWED -- ^ The market or the account do not allow for trailing stops
                   | UNKNOWN -- ^ The operation resulted in an unknown result condition. Check transaction history or contact support for further information
                   | WRONG_SIDE_OF_MARKET -- ^ The requested operation has been attempted on the wrong direction
-                  deriving (Generic, Show)
+                  deriving (Eq, Ord, Generic, Show)
 
 instance FromJSON StatusReason
 
@@ -154,7 +154,7 @@ instance FromJSON StatusReason
 -- a call to deal/positions
 data PositionData = PositionData { position :: Position -- ^ Details of the position
                                  , market :: Market -- ^ Details of the market it is in
-                                 } deriving (Generic, Show)
+                                 } deriving (Eq, Ord, Generic, Show)
 
 instance FromJSON PositionData
 
@@ -175,7 +175,7 @@ data Market = Market { bid :: Double -- ^ Bid
                      , scalingFactor :: Double -- ^ multiplying factor to determine actual pip value for the levels used by the instrument
                      , streamingPricesAvailable :: Bool -- ^ True if streaming prices are available, i.e. the market is tradeable and the client has appropriate permissions
                      , updateTimeUTC :: DealTime -- ^ Time of last instrument price update
-                     } deriving (Show)
+                     } deriving (Eq, Ord, Show)
 
 
 instance FromJSON Market where
@@ -206,7 +206,7 @@ data MarketStatus = CLOSED
                   | ON_AUCTION_NO_EDITS
                   | SUSPENDED
                   | TRADEABLE
-                  deriving (Generic, Show)
+                  deriving (Eq, Ord, Generic, Show)
 
 instance FromJSON MarketStatus
 
@@ -224,7 +224,7 @@ data Position = Position { contractSize :: Double -- ^ Size of the contract
                          , stopLevel :: Double -- ^ Stop level
                          , trailingStep :: Maybe Double -- ^ Trailing step size
                          , trailingStopDistance :: Maybe Double -- ^ Trailing stop distance
-                         } deriving (Generic, Show)
+                         } deriving (Eq, Ord, Generic, Show)
 
 instance FromJSON Position
 
@@ -247,7 +247,7 @@ data PositionRequest = PositionRequest { currencyCode :: Text
                                        , timeInForce :: TimeInForce
                                        , trailingStop :: Bool
                                        , trailingStopIncrement :: Maybe Double
-                                       } deriving (Show, Generic)
+                                       } deriving (Eq, Ord, Show, Generic)
 
 instance ToJSON PositionRequest
 
@@ -258,7 +258,7 @@ data TimeInForce = FILL_OR_KILL
                  | EXECUTE_AND_ELIMINATE
                  | GOOD_TILL_CANCELLED -- ^ applies to working orders only
                  | GOOD_TILL_DATE -- ^ applies to working orders only
-                 deriving (Show, Generic)
+                 deriving (Eq, Ord, Show, Generic)
 
 instance ToJSON TimeInForce
 
@@ -301,7 +301,7 @@ defaultPR = PositionRequest { currencyCode = "GBP"
                             , timeInForce = FILL_OR_KILL
                             , trailingStop = False
                             , trailingStopIncrement = Nothing
-                            }
+                            } 
 
 type PositionReqBuilder a = a -> PositionRequest -> PositionRequest
 
@@ -386,7 +386,7 @@ data OrderType = LIMIT  -- ^ Limit orders get executed at the price seen by IG a
                         -- This type is only available subject to agreement with
                         -- IG.
                | STOP   -- ^ A Stop order. Only appears in api docs under working orders
-               deriving (Generic, Show)
+               deriving (Eq, Ord, Generic, Show)
 
 
 instance ToJSON OrderType
@@ -396,13 +396,13 @@ instance FromJSON OrderType
 
 
 data DealReference = DealReference { dealReference :: Text
-                                   } deriving (Generic, Show)
+                                   } deriving (Eq, Ord, Generic, Show)
 
 instance FromJSON DealReference
 
 
 data PositionsResponse = PositionsResponse { positions :: [PositionData] 
-                                           } deriving (Generic, Show)
+                                           } deriving (Eq, Ord, Generic, Show)
 
 instance FromJSON PositionsResponse
 
@@ -417,7 +417,7 @@ data ClosePositionRequest
                          , timeInForce :: Maybe TimeInForce
                          , quoteId :: Maybe Text
                          , size :: Double
-                         } deriving (Generic, Show)
+                         } deriving (Eq, Ord, Generic, Show)
 
 instance ToJSON ClosePositionRequest
                          
@@ -432,7 +432,7 @@ data CloseOptions = CloseOptions { level :: Maybe Double
                                  , size :: Maybe Double
                                  , expiry :: Maybe InstrumentExpiry
                                  , epic :: Maybe Text
-                                 } 
+                                 } deriving (Eq, Ord, Generic, Show)
 
 -- | Returns a base CloseOptions instance, where the orderType is set to MARKET
 -- and all other attributes are Nothing. 
@@ -447,7 +447,7 @@ data PositionUpdateRequest = PositionUpdateRequest { limitLevel :: Maybe Double
                                                    , trailingStop :: Maybe Bool
                                                    , trailingStopDistance :: Maybe Double
                                                    , trailingStopIncrement :: Maybe Double
-                                                   } deriving (Generic, Show)
+                                                   } deriving (Eq, Generic, Ord, Show)
 
 instance ToJSON PositionUpdateRequest
 
@@ -455,13 +455,13 @@ instance ToJSON PositionUpdateRequest
 -- | Represents the payload returned by a call to the otc/workingorders endpoint
 data WorkingOrderData = WorkingOrderData { marketData :: Market
                                          , workingOrderData :: WorkingOrder
-                                         } deriving (Generic, Show)
+                                         } deriving (Eq, Generic, Ord, Show)
 
 instance FromJSON WorkingOrderData
 
 
 data WorkingOrdersResponse = WorkingOrdersResponse { workingOrders :: [WorkingOrderData]
-                                                   } deriving (Generic, Show)
+                                                   } deriving (Eq, Generic, Ord, Show)
 
 
 instance FromJSON WorkingOrdersResponse
@@ -481,7 +481,7 @@ data WorkingOrder = WorkingOrder { createdDateUTC :: UTCDate
                                  , orderType :: OrderType
                                  , stopDistance :: Maybe Double
                                  , timeInForce :: TimeInForce
-                                 } deriving (Generic, Show)
+                                 } deriving (Eq, Generic, Ord, Show)
 
 instance FromJSON WorkingOrder
 
@@ -503,7 +503,7 @@ data WorkingOrderRequest = WorkingOrderRequest { currencyCode :: Text
                                                , stopLevel :: Maybe Double
                                                , timeInForce :: TimeInForce
                                                , woType :: OrderType
-                                               } deriving (Generic, Show)
+                                               } deriving (Eq, Ord, Generic, Show)
 
 instance ToJSON WorkingOrderRequest where
   toJSON WorkingOrderRequest{..} = object [ "currencyCode"   .= currencyCode 
@@ -533,7 +533,7 @@ data WorkingOrderUpdate = WorkingOrderUpdate { goodTillDate :: Maybe UTCDate
                                              , stopLevel :: Maybe Double
                                              , timeInForce :: TimeInForce
                                              , woType :: OrderType
-                                             } deriving (Generic, Show)
+                                             } deriving (Eq, Ord, Generic, Show)
 
 instance ToJSON WorkingOrderUpdate where
   toJSON WorkingOrderUpdate{..} = object [ "goodTillDate"  .= goodTillDate

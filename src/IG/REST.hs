@@ -103,7 +103,7 @@ instance ToJSON UTCDate where
 
 -- | Represents a time point as returned by the API
 data DealTime = DealTime UTCTime 
-              deriving (Show)
+              deriving (Eq, Ord, Show)
 
 -- TODO: Why not add this to the list of available formats and change the 
 -- datatype to UTCDate
@@ -132,7 +132,7 @@ tryFormats (f:fs) t = case parseTimeM True defaultTimeLocale f (Text.unpack t) o
 data InstrumentExpiry = DFB
                       | None
                       | Expires Text Text
-                      deriving (Show)
+                      deriving (Eq, Ord, Show)
 
 instance ToJSON InstrumentExpiry where
 
@@ -172,7 +172,7 @@ data InstrumentType = BINARY -- ^ Binaries
                     | SPRINT_MARKET -- ^ Sprint Market
                     | TEST_MARKET -- ^ Test market
                     | UNKNOWN -- ^ Unknown
-                    deriving (Generic, Show)
+                    deriving (Eq, Ord, Generic, Show)
 
 instance FromJSON InstrumentType 
 
