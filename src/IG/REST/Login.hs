@@ -38,10 +38,11 @@ data Credential = Credential { apiKey :: Text
 instance FromJSON Credential
 
 
+loginToApi :: Bool -> IO (Either String (AuthHeaders, LoginResponse))
 loginToApi isDemo = do
     (apiKey, loginDetails) <- getCredentials isDemo
     response <- login isDemo apiKey loginDetails
-    return $ fromRight response
+    return $ response
 
 
 getCredentials :: Bool -> IO (Text, LoginBody)

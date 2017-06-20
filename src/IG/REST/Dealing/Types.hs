@@ -58,7 +58,7 @@ instance FromJSON Deal where
 -- | Indicates the status of a deal
 data DealStatus = ACCEPTED
                 | REJECTED
-                deriving (Eq, Generic, Ord, Show)
+                deriving (Eq, Generic, Ord, Read, Show)
 
 instance FromJSON DealStatus
 
