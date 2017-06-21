@@ -16,7 +16,7 @@ data ControlProperty = SessionId Text -- ^ Mandatory. The session id
                      | Op StreamOp -- ^ Mandatory. 
                      | DataAdapter Text -- ^ Usually not required
                      | Selector Text
-                     | Mode SubMode -- ^ Mandatory. Should be Merge to start a new feed
+                     | Mode SubMode -- ^ Mandatory. 
                      | ReqBufferSize Int
                      | ReqMaxFrequency Frequency
                      | Snapshot SnapshotAtt

@@ -12,8 +12,8 @@
 -- Lighstreamer server as it arrives.
 --
 -- Once the data has been received, this thread then places that data into a
--- memory structure such as an MVar which can be read by another thread and so
--- the data exported elsewhere in the application.
+-- TChan Text which can be read by another thread and so the data exported
+-- elsewhere in the application.
 --
 -- Manipulating the feed is a matter of updating the server using the session
 -- id and session url using a control connection. The control connection is run
