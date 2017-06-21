@@ -50,7 +50,8 @@ getBadCredentials = do
 
 logoutSpec :: Spec
 logoutSpec = do
-  (headers, _) <- runIO $ loginToApi True
+  eh <- runIO $ loginToApi True
+  let (headers, _) = fromRight eh
   it "should logout without errors" $ do
     logout headers `shouldReturn` Right ()
 
@@ -58,7 +59,8 @@ logoutSpec = do
 -- | Note: Requires a login with two different test accounts attached to it. 
 switchAccountSpec :: Spec
 switchAccountSpec = do
-  (headers, loginResponse) <- runIO $ loginToApi True
+  eh <- runIO $ loginToApi True
+  let (headers, loginResponse) = fromRight eh
   let currentAccount = currentAccountId loginResponse
   let otherAccounts = filter (\accId -> accId /= currentAccount) 
                     . map (\acc -> accountId acc) 

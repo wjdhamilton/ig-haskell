@@ -24,7 +24,8 @@ import Test.Hspec
 
 spec :: Spec
 spec = do
-  (headers, lR) <- runIO $ loginToApi True
+  eh <- runIO $ loginToApi True
+  let (headers, _) = fromRight eh
   describe "navigateMarkets" $ navigateMarketsSpec headers 
   describe "markets" $ marketsSpec headers 
   describe "historical data" $ historicalDataSpec headers
