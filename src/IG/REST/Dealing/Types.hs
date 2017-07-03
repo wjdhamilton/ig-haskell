@@ -145,7 +145,7 @@ data StatusReason = ACCOUNT_NOT_ENABLED_TO_TRADING -- ^ The account is not enabl
                   | TRAILING_STOP_NOT_ALLOWED -- ^ The market or the account do not allow for trailing stops
                   | UNKNOWN -- ^ The operation resulted in an unknown result condition. Check transaction history or contact support for further information
                   | WRONG_SIDE_OF_MARKET -- ^ The requested operation has been attempted on the wrong direction
-                  deriving (Eq, Ord, Generic, Show)
+                  deriving (Eq, Ord, Generic, Read, Show)
 
 instance FromJSON StatusReason
 
@@ -395,6 +395,8 @@ instance ToJSON OrderType
 instance FromJSON OrderType
 
 
+-- | Represents the payload that is returned by IG when an order is accepted for
+-- processing
 data DealReference = DealReference { dealReference :: Text
                                    } deriving (Eq, Ord, Generic, Show)
 

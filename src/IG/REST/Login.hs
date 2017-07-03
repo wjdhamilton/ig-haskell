@@ -23,8 +23,8 @@ import Data.Maybe
 
 
 data Credentials = Credentials { demo :: Credential
-                   , production :: Credential
-                   } deriving (Generic, Show)
+                               , production :: Credential
+                               } deriving (Generic, Show)
 
 
 instance FromJSON Credentials
@@ -48,9 +48,9 @@ loginToApi isDemo = do
 getCredentials :: Bool -> IO (Text, LoginBody)
 getCredentials isDemo = do
   file <- readFile "ig_creds.json"
-  let allCreds = BL.pack file
-  let creds = if isDemo then demo . fromJust . decode $ allCreds
-                        else production . fromJust . decode $ allCreds
+  let allCreds = fromJust . decode $ BL.pack file
+  let creds = if isDemo then demo . allCreds
+                        else production . allCreds
   let a = apiKey creds
   let identifier = username creds
   let p = pass creds
