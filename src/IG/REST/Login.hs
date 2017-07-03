@@ -49,8 +49,8 @@ getCredentials :: Bool -> IO (Text, LoginBody)
 getCredentials isDemo = do
   file <- readFile "ig_creds.json"
   let allCreds = fromJust . decode $ BL.pack file
-  let creds = if isDemo then demo . allCreds
-                        else production . allCreds
+  let creds = if isDemo then demo allCreds
+                        else production allCreds
   let a = apiKey creds
   let identifier = username creds
   let p = pass creds
