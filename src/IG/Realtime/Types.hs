@@ -245,7 +245,11 @@ snakeCase t =  cs . tail . snake . cs $ t
 type TableNo = Int
 type ItemNo = Int
 
-data StreamContent = Update TableNo ItemNo [Text]
+
+data LSValue = LSValue TableNo ItemNo [Text] deriving (Show)
+
+
+data StreamContent = Update LSValue
                    | Timedout
                    | Exhausted
                    deriving (Show)
