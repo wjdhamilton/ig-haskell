@@ -7,6 +7,7 @@ import Data.Aeson
 import Data.Aeson.Lens
 import Data.Maybe
 import Data.Monoid
+import Data.String.Conversions
 import Data.Text (Text)
 import qualified Data.Text as Text
 import Data.Time
@@ -22,7 +23,7 @@ confirms a@(AuthHeaders _ _ _ isDemo) ref = do
   let opts = v1 a
   let reference = dealReference (ref :: DealReference)
   let confirmPath = restPathSegment </> "confirms" </> mempty
-  let url = Text.unpack $ host isDemo </> confirmPath </> reference
+  let url = cs $ host isDemo </> confirmPath </> reference
   apiRequest (getWith opts url)
          
   
@@ -31,7 +32,7 @@ allPositions :: AuthHeaders -> IO (Either ApiError PositionsResponse)
 allPositions a@(AuthHeaders _ _ _ isDemo) = do
   let opts = v2 a
   let positionsPath = "positions"
-  let url = Text.unpack $ host isDemo </> restPathSegment </> positionsPath
+  let url = cs $ host isDemo </> restPathSegment </> positionsPath
   apiRequest $ getWith opts url
 
 
@@ -39,12 +40,12 @@ allPositions a@(AuthHeaders _ _ _ isDemo) = do
 positionDetails :: AuthHeaders -> Text -> IO (Either ApiError PositionData)
 positionDetails a@(AuthHeaders _ _ _ isDemo) id = do
   let opts = v2 a
-  let url = Text.unpack $ host isDemo </> restPathSegment </> "positions" </> id
+  let url = cs $ host isDemo </> restPathSegment </> "positions" </> id
   apiRequest $ getWith opts url
 
 
 otcPath :: Bool -> String
-otcPath isDemo = Text.unpack $ host isDemo </> restPathSegment </> "positions/otc"
+otcPath isDemo = cs $ host isDemo </> restPathSegment </> "positions/otc"
 
 -- | Close one position
 closePosition :: AuthHeaders -> ClosePositionRequest -> IO (Either ApiError DealReference)
@@ -94,7 +95,7 @@ createPosition a@(AuthHeaders _ _ _ isDemo ) positionRequest = do
 updatePosition :: AuthHeaders -> Text -> PositionUpdateRequest -> IO (Either ApiError DealReference)
 updatePosition a@(AuthHeaders _ _ _ isDemo) id req = do
   let opts = v2 a
-  let url = otcPath isDemo <> "/" <> Text.unpack id
+  let url = otcPath isDemo <> "/" <> cs id
   apiRequest $ putWith opts url (toJSON req)
 
 
@@ -110,7 +111,7 @@ createSprintPosition a@(AuthHeaders _ _ _ isDemo) = undefined
 getWorkingOrders :: AuthHeaders -> IO (Either ApiError WorkingOrdersResponse)
 getWorkingOrders a@(AuthHeaders _ _ _ isDemo) = do
   let opts = v2 a
-  let url = Text.unpack $ host isDemo </> restPathSegment </> "workingorders"
+  let url = cs $ host isDemo </> restPathSegment </> "workingorders"
   apiRequest $ getWith opts url
 
 
@@ -123,7 +124,7 @@ otcWorkingOrderPath isDemo mId =
 createWorkingOrder :: AuthHeaders -> WorkingOrderRequest -> IO (Either ApiError DealReference)
 createWorkingOrder a@(AuthHeaders _ _ _ isDemo) req = do
   let opts = v2 a
-  let url = Text.unpack $ otcWorkingOrderPath isDemo Nothing
+  let url = cs $ otcWorkingOrderPath isDemo Nothing
   apiRequest $ postWith opts url (toJSON req)
 
 
@@ -131,7 +132,7 @@ createWorkingOrder a@(AuthHeaders _ _ _ isDemo) req = do
 deleteWorkingOrder :: AuthHeaders -> Text -> IO (Either ApiError DealReference)
 deleteWorkingOrder a@(AuthHeaders _ _ _ isDemo) id = do
   let opts = v2 a
-  let url = Text.unpack $ otcWorkingOrderPath isDemo (Just id)
+  let url = cs $ otcWorkingOrderPath isDemo (Just id)
   apiRequest $ deleteWith opts url
 
 
@@ -139,5 +140,5 @@ deleteWorkingOrder a@(AuthHeaders _ _ _ isDemo) id = do
 updateWorkingOrder :: AuthHeaders -> Text -> WorkingOrderUpdate -> IO (Either ApiError DealReference)
 updateWorkingOrder a@(AuthHeaders _ _ _ isDemo) id update = do
   let opts = v2 a
-  let url = Text.unpack $ otcWorkingOrderPath isDemo (Just id)
+  let url = cs $ otcWorkingOrderPath isDemo (Just id)
   apiRequest $ putWith opts url (toJSON update)

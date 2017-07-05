@@ -8,6 +8,7 @@ import Data.ByteString.Lazy as BL
 import Data.Either.Unwrap
 import Data.Maybe
 import Data.Monoid
+import Data.String.Conversions
 import Data.Text as Text
 import Data.Text.Encoding as TE
 import Data.Time
@@ -46,15 +47,15 @@ v3 = buildHeaders "3"
 
 buildHeaders :: Text -> AuthHeaders -> Options
 buildHeaders version (AuthHeaders c x k _) = 
-  baseHeaders version k & header "CST" .~ [TE.encodeUtf8 c]
-                        & header "X-SECURITY-TOKEN" .~ [TE.encodeUtf8 x]
+  baseHeaders version k & header "CST" .~ [cs c]
+                        & header "X-SECURITY-TOKEN" .~ [cs x]
 
 
 baseHeaders :: Text -> Text -> Options
 baseHeaders v key = defaults & header "Accept" .~ ["application/json", "charset=UTF-8"]
                              & header "Content-Type" .~ [ "application/json" ]
-                             & header "Version" .~ [ TE.encodeUtf8 v ]
-                             & header "X-IG-API-KEY" .~ [TE.encodeUtf8 key]
+                             & header "Version" .~ [ cs v ]
+                             & header "X-IG-API-KEY" .~ [cs key]
                              & manager .~ Left (tlsManagerSettings)
                              & checkResponse .~ (Just $ \_ _  -> return ()) -- TODO Check what this actually does
 
@@ -68,7 +69,7 @@ apiRequest request = do
   case response ^. responseStatus ^. statusCode of
        200 -> do
          case eitherDecode body of
-              Left e -> return $ Left (BadPayload $ Text.pack e)
+              Left e -> return $ Left (BadPayload $ cs e)
               Right r -> return $ Right r
 
        _ -> do return $ Left (decodeError body)
@@ -90,13 +91,13 @@ data UTCDate = UTCDate UTCTime
 instance FromJSON UTCDate where
   parseJSON = withText "UTCDate" $ \d ->
     case tryFormats dateFormats d of
-         Nothing -> fail $ Text.unpack ("Could not parse" <> d)
+         Nothing -> fail $ cs ("Could not parse" <> d)
          Just date -> return $ UTCDate date
 
 
 instance ToJSON UTCDate where
   toJSON (UTCDate d) = String formatted
-    where formatted = Text.pack $ formatTime locale format d
+    where formatted = cs $ formatTime locale format d
           locale = defaultTimeLocale
           format = "%Y/%m/%dT%H:%M:%S"
 
@@ -110,16 +111,16 @@ data DealTime = DealTime UTCTime
 instance FromJSON DealTime where 
 
   parseJSON = withText "DealTime" $ \t -> 
-    case time ( Text.unpack t ) of
+    case time ( cs t ) of
          Just tm -> return $ DealTime tm
-         Nothing -> fail $ Text.unpack t
+         Nothing -> fail $ cs t
     where time = parseTimeM True locale "%X" 
           locale = defaultTimeLocale
 
 
 tryFormats :: [String] -> Text -> Maybe UTCTime
 tryFormats [] t = Nothing
-tryFormats (f:fs) t = case parseTimeM True defaultTimeLocale f (Text.unpack t) of
+tryFormats (f:fs) t = case parseTimeM True defaultTimeLocale f (cs t) of
                            Just date -> Just  date
                            Nothing -> tryFormats fs t
 
@@ -138,7 +139,7 @@ instance ToJSON InstrumentExpiry where
 
   toJSON (Expires m d) = String $ m <> "-" <> d
   toJSON None = String "-"
-  toJSON x = String . Text.pack . show $ x
+  toJSON x = String . cs . show $ x
 
 instance FromJSON InstrumentExpiry where
 
@@ -151,7 +152,7 @@ instance FromJSON InstrumentExpiry where
            case expiryParts of
              [] -> fail "No expiry data provided"
              (month:year:_) -> return $ Expires month year
-             (x:_) -> fail . Text.unpack $ "Only one part of expiry data provided: " <> x
+             (x:_) -> fail . cs $ "Only one part of expiry data provided: " <> x
 
 data InstrumentType = BINARY -- ^ Binaries
                     | BUNGEE_CAPPED -- ^ Capped bungees

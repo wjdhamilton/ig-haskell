@@ -10,6 +10,7 @@ import qualified Data.ByteString.Char8 as BS
 import qualified Data.ByteString.Lazy.Char8 as BL
 import Data.Map.Strict as Map
 import Data.Monoid
+import Data.String.Conversions
 import Data.Text as Text
 import Data.Text.Encoding as TE
 import Data.Scientific
@@ -48,7 +49,7 @@ loginToApi isDemo = do
 getCredentials :: Bool -> IO (Text, LoginBody)
 getCredentials isDemo = do
   file <- readFile "ig_creds.json"
-  let allCreds = fromJust . decode $ BL.pack file
+  let allCreds = fromJust . decode $ cs file
   let creds = if isDemo then demo allCreds
                         else production allCreds
   let a = apiKey creds
@@ -188,7 +189,7 @@ login isDemo key logBody = do
                             Right (AuthHeaders clientToken sessToken key isDemo, res)
                         Nothing -> return $ Left "Could not parse tokens"
        _ -> apiError response Map.empty
-  where loginUrl = Text.unpack $ host isDemo </> restPath
+  where loginUrl = cs $ host isDemo </> restPath
 
 
 loginOptions :: Text -> Options
@@ -204,7 +205,7 @@ getSecurityHeaders response = (,) <$> cst <*> xst
 logout :: AuthHeaders -> IO (Either ApiError ())
 logout headers = do 
   let opts = buildHeaders "1" headers
-  r <- deleteWith opts $ Text.unpack (host (isDemo headers) </> restPath)
+  r <- deleteWith opts $ cs (host (isDemo headers) </> restPath)
   case r ^. responseStatus ^. statusCode of
        204 -> do return $ Right ()
        _   -> do return . Left $ decodeError (r ^. responseBody)
@@ -238,7 +239,7 @@ instance FromJSON SessionDetails where
 sessionDetails :: AuthHeaders -> IO (Either ApiError SessionDetails)
 sessionDetails a@(AuthHeaders _ _ _ isLogin) = do
   let opts = buildHeaders "1" a
-  r <- getWith opts (unpack $ host isLogin <> restPath)
+  r <- getWith opts (cs $ host isLogin <> restPath)
   let bod = r ^. responseBody
   case r ^. responseStatus ^. statusCode of
        200 -> do
@@ -265,14 +266,14 @@ switchAccount :: AuthHeaders -> Text -> Bool -> IO (Either String ())
 switchAccount a@(AuthHeaders _ _ _ isLogin) id isDefault = do
   let payload = toJSON $ SwitchAccountData id isDefault
   let opts = buildHeaders "1" a
-  r <- putWith opts (unpack $ host isLogin </> restPath) payload
+  r <- putWith opts (cs $ host isLogin </> restPath) payload
   case r ^. responseStatus ^. statusCode of
        200 -> return $ Right ()
        _   -> apiError r Map.empty 
 
 
 accountsPath :: Bool -> String
-accountsPath isLogin = unpack $ host isLogin </> restPath
+accountsPath isLogin = cs $ host isLogin </> restPath
 
 
 encryptionKey = undefined

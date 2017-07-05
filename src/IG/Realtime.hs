@@ -12,7 +12,7 @@
 -- Lighstreamer server as it arrives.
 --
 -- Once the data has been received, this thread then places that data into a
--- TChan Text which can be read by another thread and so the data exported
+-- TChan StreamContent which can be read by another thread and so the data exported
 -- elsewhere in the application.
 --
 -- Manipulating the feed is a matter of updating the server using the session
@@ -24,7 +24,7 @@ module IG.Realtime (openSession, control, RealTimeError(..), SessId, SessURL, Re
 import Control.Concurrent
 import Control.Concurrent.STM as STM
 import Control.Concurrent.STM.TChan as Chan
-import Control.Lens
+import Control.Lens hiding ((|>))
 import Control.Monad
 import Control.Monad.Trans
 import Control.Monad.Trans.Either
@@ -36,9 +36,11 @@ import Data.Maybe
 import Data.Map.Strict (Map)
 import qualified Data.Map.Strict as Map 
 import Data.Monoid
+import Data.String.Conversions
 import Data.Text (Text)
 import qualified Data.Text as Text 
-import Data.Text.Encoding as TE
+import qualified Debug.Trace as Debug
+import Flow
 import IG
 import IG.REST
 import IG.REST.Login
@@ -66,7 +68,7 @@ rebindSess = "/bind_session.txt"
 -- the data feed will be written
 openSession :: AuthHeaders 
             -> RealTimeURL 
-            -> IO(Either RealTimeError (SessId, SessURL, TChan Text))
+            -> IO(Either RealTimeError (SessId, SessURL, TChan StreamContent))
 openSession headers host =
  runEitherT $ do
     eStream <- lift $ buildRequest headers host >>= openStream 
@@ -84,7 +86,7 @@ buildRequest headers url = do
 
 streamUrl :: Text -> Text -> Text -> String
 streamUrl host path args = 
-  Text.unpack $ realTimeBase host <> path <> "?" <> args
+  cs $ realTimeBase host <> path <> "?" <> args
 
 
 mkRealtimeAuth :: AuthHeaders -> Text
@@ -180,7 +182,7 @@ lsResponseCode :: BS.ByteString -> Text
 lsResponseCode body = case message of
                            "ERROR" -> List.last $ List.take 2 readBody
                            _ -> message
-  where readBody = Text.splitOn "\r\n" . Text.strip . TE.decodeUtf8 $ body
+  where readBody = Text.splitOn "\r\n" . Text.strip . cs $ body
         message = Prelude.head readBody 
 
 
@@ -194,24 +196,24 @@ data FeedState = Loop
 timeoutFlag = "TIMEOUT"
 
 
--- TODO: Need to close the response once it's finished or no longer required.
-listen :: Response BodyReader -> Text -> Text -> Text -> TChan Text -> Int -> IO ()
+listen :: Response BodyReader -> Text -> Text -> Text -> TChan StreamContent-> Int -> IO ()
 listen response sess_id sess_url host channel time = do
   let body = Client.responseBody response
-  datum <- brRead body
-  case getFeedState datum of 
+  update <- brRead body
+  case getFeedState update of 
        Timeout -> do
-         atomically $ writeTChan channel "LS Stream timed out"
+         atomically $ writeTChan channel Timedout
          responseClose response
        Loop    ->  
          rebindSession sess_id sess_url host channel time
        End     -> do
-         atomically $ writeTChan channel "Stream exhausted"
+         atomically $ writeTChan channel Exhausted
          responseClose response
        Probe   -> do
          listen response sess_id sess_url host channel time
        Datum d -> do
-         atomically $ writeTChan channel d
+         let t = readTable d
+         atomically $ writeTChan channel t
          listen response sess_id sess_url host channel time
 
 
@@ -224,10 +226,10 @@ getFeedState content =
        "LOOP"    -> Loop
        "TIMEOUT" -> Timeout
        _         -> Datum $ noWhiteSpace content
-  where noWhiteSpace = Text.strip . TE.decodeUtf8
+  where noWhiteSpace = Text.strip . cs
 
 
-rebindSession :: Text -> Text -> Text -> TChan Text -> Int -> IO ()
+rebindSession :: Text -> Text -> Text -> TChan StreamContent-> Int -> IO ()
 rebindSession id sess_url host channel timeout = do
   let url = streamUrl host rebindSess ("LS_session=" <> id)
   eResponse <- parseRequest url >>= openStream
@@ -240,7 +242,7 @@ rebindSession id sess_url host channel timeout = do
 
 sessionData :: BS.ByteString -> (Text, Text, Int)
 sessionData r = (sess_id, sess_url, timeout) 
-  where body = Text.lines . Text.pack . BS.unpack $ r
+  where body = Text.lines . cs $ r
         extractArg = last . Text.splitOn ":" . Text.strip 
         sess_id  = case atMay body 1 of
                         Just id -> 
@@ -250,9 +252,17 @@ sessionData r = (sess_id, sess_url, timeout)
         url = fromMaybe (errorMessage "Session url could not be decoded") (atMay body 2)
         sess_url = "https://" <> extractArg url
         timeout = fromMaybe (errorMessage "Timeout could not be decoded") 
-                            (atMay body 3 >>= (\s -> readMay $ Text.unpack . extractArg $ s))
+                            (atMay body 3 >>= (\s -> readMay $ cs . extractArg $ s))
         errorMessage s = Safe.abort (s <> " " <> show body)
 
+
+readTable :: Text -> StreamContent
+readTable t = Update tNum iNum values
+  where splut = Text.splitOn "|" t
+        nums = Text.splitOn "," (head splut)
+        tNum = read $ cs (nums !! 0) :: TableNo
+        iNum = read $ cs (nums !! 1) :: ItemNo
+        values =  tail splut 
 
 {--------------------------- Control Messages ----------------------------------}
 
@@ -265,7 +275,7 @@ control :: Text -- ^ The url obtained from openSession
 control url atts schema = do
   let opts = Wreq.defaults & Wreq.header "Content-Type" .~ ["application/x-www-form-urlencoded"]
   let payload = lsBody atts schema
-  let controlUrl = Text.unpack $ url <> "/lightstreamer/control.txt"
+  let controlUrl = cs $ url <> "/lightstreamer/control.txt"
   -- TODO this should use try since postWith can throw an error (or is there a lib option? check)
   response <- Wreq.postWith opts controlUrl payload
   let body = response ^. Wreq.responseBody
