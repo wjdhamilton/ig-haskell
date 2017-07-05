@@ -212,7 +212,7 @@ listen response sess_id sess_url host channel time = do
        Probe   -> do
          listen response sess_id sess_url host channel time
        Datum d -> do
-         let t = readTable d
+         let t = Update $ readTable d
          atomically $ writeTChan channel t
          listen response sess_id sess_url host channel time
 
@@ -256,8 +256,8 @@ sessionData r = (sess_id, sess_url, timeout)
         errorMessage s = Safe.abort (s <> " " <> show body)
 
 
-readTable :: Text -> StreamContent
-readTable t = Update tNum iNum values
+readTable :: Text -> LSValue
+readTable t = LSValue tNum iNum values
   where splut = Text.splitOn "|" t
         nums = Text.splitOn "," (head splut)
         tNum = read $ cs (nums !! 0) :: TableNo
