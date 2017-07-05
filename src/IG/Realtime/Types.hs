@@ -4,6 +4,7 @@ import Data.Char
 import Data.List as List
 import Data.List.Split
 import Data.Monoid
+import Data.String.Conversions
 import Data.Text (Text)
 import qualified Data.Text as Text
 import IG
@@ -184,7 +185,7 @@ data TimeSlice = Second | Minute1 | Minute5 | Hour deriving (Eq, Ord, Show)
 instance ControlAttribute TimeSlice where
   encode Minute1 = "1MINUTE"
   encode Minute5 = "5MINUTE"
-  encode x       = Text.toUpper . Text.pack $ show x
+  encode x       = Text.toUpper . cs $ show x
 
 
 data TickFields = Ofr
@@ -232,11 +233,19 @@ class (Eq a, Ord a, Show a) => ControlAttribute a where
 
 
 toText :: Show a => a -> Text
-toText = Text.pack . show
+toText = cs . show
 
 
 snakeCase :: Text -> Text
-snakeCase t =  Text.pack . tail . snake . Text.unpack $ t
+snakeCase t =  cs . tail . snake . cs $ t
   where snake []     = []
         snake (c:cs) = if isUpper c then '_' : c : snake cs
                                     else c : snake cs
+
+type TableNo = Int
+type ItemNo = Int
+
+data StreamContent = Update TableNo ItemNo [Text]
+                   | Timedout
+                   | Exhausted
+                   deriving (Show)
