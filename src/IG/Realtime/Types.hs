@@ -246,7 +246,7 @@ type TableNo = Int
 type ItemNo = Int
 
 
-data LSValue = LSValue TableNo ItemNo [Text] deriving (Show)
+data LSValue = LSValue TableNo ItemNo [Maybe Text] deriving (Show)
 
 
 data StreamContent = Update LSValue
