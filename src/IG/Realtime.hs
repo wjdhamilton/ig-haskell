@@ -262,7 +262,20 @@ readTable t = LSValue tNum iNum values
         nums = Text.splitOn "," (head splut)
         tNum = read $ cs (nums !! 0) :: TableNo
         iNum = read $ cs (nums !! 1) :: ItemNo
-        values =  tail splut 
+        values = decodeUpdate $ tail splut 
+
+
+-- | Decode the update, respecting the protocol set out on page 29 of the 
+-- Network Protocol Tutorial
+decodeUpdate :: [Text] -> [Maybe Text]
+decodeUpdate = map maybeVal
+  where checkTail t = if Text.null t then Nothing else Just t
+        maybeVal v  = if Text.null v then Just v
+                                     else case Text.head v of
+                                               '#' -> checkTail (Text.tail v)
+                                               '$' -> checkTail (Text.tail v)
+                                               _ -> Just $ v
+
 
 {--------------------------- Control Messages ----------------------------------}
 
