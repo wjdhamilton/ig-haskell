@@ -2,7 +2,7 @@
 
 A library for interacting with the IG Api in Haskell. 
 
-##Organisation
+## Organisation
 
 * Account = IG.REST.Account
 * Dealing = IG.REST.Dealing
