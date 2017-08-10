@@ -50,8 +50,7 @@ getCredentials :: Bool -> IO (Text, LoginBody)
 getCredentials isDemo = do
   file <- readFile "ig_creds.json"
   let allCreds = fromJust . decode $ cs file
-  let creds = if isDemo then demo allCreds
-                        else production allCreds
+  let creds = if isDemo then demo allCreds else production allCreds
   let a = apiKey creds
   let identifier = username creds
   let p = pass creds
@@ -172,10 +171,10 @@ restPath = "gateway/deal/session"
 -- | Log in to the IG API. On success, a 
 login :: Bool -> Text -> LoginBody -> IO (Either String (AuthHeaders, LoginResponse))
 login isDemo key logBody = do
-  let options = loginOptions key
-  response <- postWith options loginUrl (toJSON logBody)
+  response <- postWith (loginOptions key) loginUrl (toJSON logBody)
   case response ^. responseStatus . statusCode of
        200  -> do
+         -- TODO could we use either here instead of cascading cases?
          let loginResponse = eitherDecode (response ^. responseBody) :: Either String LoginResponse
          case loginResponse of 
               Left e -> return $ Left e
@@ -185,8 +184,7 @@ login isDemo key logBody = do
                         Just (cst, xst) -> do 
                           let clientToken = decodeUtf8 cst
                           let sessToken = decodeUtf8 xst
-                          return $ 
-                            Right (AuthHeaders clientToken sessToken key isDemo, res)
+                          return $ Right (AuthHeaders clientToken sessToken key isDemo, res)
                         Nothing -> return $ Left "Could not parse tokens"
        _ -> apiError response Map.empty
   where loginUrl = cs $ host isDemo </> restPath
@@ -200,6 +198,7 @@ getSecurityHeaders :: Response BL.ByteString -> Maybe (BS.ByteString, BS.ByteStr
 getSecurityHeaders response = (,) <$> cst <*> xst
   where cst = response ^? responseHeader "CST"
         xst = response ^? responseHeader "X-SECURITY-TOKEN"
+
 
 -- | Log out of the API
 logout :: AuthHeaders -> IO (Either ApiError ())
@@ -222,6 +221,7 @@ data SessionDetails = SessionDetails { clientId' :: Text
                                      , currency' :: Text
                                      , lightstreamerEndpoint' :: Text
                                      } deriving (Eq, Generic, Show)
+
 
 instance FromJSON SessionDetails where
 
