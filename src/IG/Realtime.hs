@@ -167,7 +167,7 @@ data RealTimeError = InvalidLogin
 
 decodeDataFeed :: BL.ByteString -> a -> Either RealTimeError a
 decodeDataFeed s x = let code = lsResponseCode (BL.toStrict s) in
-                             case Debug.traceId (cs code) of
+                             case code of
                                   "OK" -> Right $ x
                                   "1"  -> Left InvalidLogin
                                   "2"  -> Left UnavailableAdapterSet
@@ -189,6 +189,7 @@ decodeDataFeed s x = let code = lsResponseCode (BL.toStrict s) in
                                   "29" -> Left RawModeNotAllowed
                                   "30" -> Left SubscriptionsNotAllowed
                                   "60" -> Left ClientVersionNotSupported
+                                  _    -> Safe.abort $ cs ("Could not decode: " <> code)
 
 
 lsResponseCode :: BS.ByteString -> Text
