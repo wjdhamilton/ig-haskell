@@ -11,6 +11,30 @@ import IG
 import Flow
 import Network.Wreq
 
+data StreamProperty = Password Text -- ^ The lightstreamer password, see @Realtime#tokens
+                    | MaxBandwidth Int -- ^ Optional. 
+                    | ContentLength Int -- ^ Optional. Content-Length to be used for the connection.
+                    | KeepAliveMillis Int -- ^ Optional. Longest inactivity time allowed for the connection.
+                    | ReportInfo Bool -- ^ Optional. 
+                    | Polling Bool -- ^ If True, requests a polling connection
+                    | PollingMillis Int -- ^ Expected time between closing the last connection and opening a new one to poll the session.
+                    | IdleMillis Int -- ^ Time the server is allowed to wait for an update to return.
+                    
+
+encodeStreamProperty :: StreamProperty -> Text
+encodeStreamProperty (Password t)        = flatten ["LS_password",t]
+encodeStreamProperty (MaxBandwidth n)    = flatten ["LS_requested_max_bandwidth", cs . show $ n]
+encodeStreamProperty (ContentLength n)   = flatten ["LS_content_length", cs . show $ n]
+encodeStreamProperty (KeepAliveMillis n) = flatten ["LS_keepalive_millis",  cs . show $ n]
+encodeStreamProperty (ReportInfo n)      = flatten ["LS_report_info", cs . show $ n]
+encodeStreamProperty (Polling isPoll)    = flatten ["LS_polling", cs . show $ isPoll]
+encodeStreamProperty (PollingMillis n)   = flatten ["LS_polling_millis", cs . show $ n]
+encodeStreamProperty (IdleMillis n)      = flatten ["LS_idle_millis", cs . show $ n]
+
+flatten :: [Text] -> Text
+flatten = mconcat . List.intersperse "="
+
+
 -- | The different attributes that are understood by the IG Realtime system
 data ControlProperty = SessionId Text -- ^ Mandatory. The session id
                      | Table Int -- ^ Mandatory. The number of a table to be created or changed
@@ -24,7 +48,7 @@ data ControlProperty = SessionId Text -- ^ Mandatory. The session id
 
 -- | Encode the value of a ControlProperty such that it can be used in a
 -- request to the IG server
-encodeProperty :: ControlProperty  -> FormParam
+encodeProperty :: ControlProperty -> FormParam
 encodeProperty (SessionId s)       = "LS_session" := s
 encodeProperty (Table n)           = "LS_table" := n
 encodeProperty (Op o)              = "LS_op" := encode o
@@ -33,6 +57,11 @@ encodeProperty (Selector s)        = "LS_selector" := s
 encodeProperty (Mode m)            = "LS_mode" := encode m
 encodeProperty (ReqBufferSize n)   = "LS_requested_buffer_size" := show n
 encodeProperty (ReqMaxFrequency f) = "LS_requested_max_frequency" := encode f
+
+
+class (Eq a, Ord a, Show a) => ControlAttribute a where
+  encode :: a -> Text
+  encode = Text.toUpper . snakeCase . toText
 
 
 -- | Options for adding a table to a subscription
@@ -66,8 +95,8 @@ data Schema = Market Epic [MarketFields]
 
 
 encodeSchema :: Schema -> [FormParam]
-encodeSchema s@(Market _ fs)        = [schemaId s , schemaParams fs]
-encodeSchema s@(SprintMarket _ fs)  = [schemaId s , schemaParams fs]
+encodeSchema s@(Market _ fs)        = [schemaId s, schemaParams fs]
+encodeSchema s@(SprintMarket _ fs)  = [schemaId s, schemaParams fs]
 encodeSchema s@(Account _ fs)       = [schemaId s, schemaParams fs]
 encodeSchema s@(Trade _ fs)         = [schemaId s, schemaParams fs]
 encodeSchema s@(Chart _ _ fs)       = [schemaId s, schemaParams fs]
@@ -225,11 +254,6 @@ data SnapshotAtt = UseSnapshot Bool
 instance ControlAttribute SnapshotAtt where
   encode (UseSnapshot perhaps) = Text.toLower . toText $ perhaps
   encode (Length n)            = toText n
-
-
-class (Eq a, Ord a, Show a) => ControlAttribute a where
-  encode :: a -> Text
-  encode = Text.toUpper . snakeCase . toText
 
 
 toText :: Show a => a -> Text

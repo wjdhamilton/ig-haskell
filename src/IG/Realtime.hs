@@ -52,6 +52,9 @@ import qualified Network.Wreq  as Wreq
 import Safe
 import System.Timeout
 
+
+import Debug.Trace as Debug
+
 type SessId = Text
 type SessURL = Text
 type RealTimeURL = Text
@@ -70,27 +73,37 @@ openSession :: AuthHeaders
             -> RealTimeURL 
             -> IO(Either RealTimeError (SessId, SessURL, TChan StreamContent))
 openSession headers host =
+ openSessionWith headers [] host
+
+
+openSessionWith :: AuthHeaders 
+                -> [StreamProperty] 
+                -> RealTimeURL
+                -> IO(Either RealTimeError (SessId, SessURL, TChan StreamContent))
+openSessionWith headers props host =
  runEitherT $ do
-    eStream <- lift $ buildRequest headers host >>= openStream 
-    (id, sessUrl, time, stream) <- hoistEither eStream
-    chan <- lift (atomically newTChan)
-    lift $ forkIO (listen stream id sessUrl host chan time)
-    return (id, sessUrl, chan)
+   let encoded = map encodeStreamProperty props
+   eStream <- lift $ buildRequest headers encoded host >>= openStream 
+   (id, sessUrl, time, stream) <- hoistEither eStream
+   chan <- lift (atomically newTChan)
+   lift $ forkIO (listen stream id sessUrl host chan time)
+   return (id, sessUrl, chan)
 
 
-buildRequest :: AuthHeaders -> RealTimeURL -> IO Request
-buildRequest headers url = do
-  initialStream <- parseRequest . streamUrl url createSess . mkRealtimeAuth $ headers
+buildRequest :: AuthHeaders -> [Text] -> RealTimeURL -> IO Request
+buildRequest headers queries url = do
+  let queryString = mconcat . List.intersperse "&" $ (mkRealtimeAuth headers : queries)
+  initialStream <- parseRequest (streamUrl url createSess queryString)
   return $ initialStream { method = "POST" }
 
 
 streamUrl :: Text -> Text -> Text -> String
-streamUrl host path args = 
-  cs $ realTimeBase host <> path <> "?" <> args
+streamUrl host path query = 
+  cs $ realTimeBase host <> path <> "?" <> query
 
 
 mkRealtimeAuth :: AuthHeaders -> Text
-mkRealtimeAuth (AuthHeaders cst xst _ _) = key <> "=" <> tokens cst xst
+mkRealtimeAuth (AuthHeaders cst xst _ _) = mconcat [key, "=", tokens cst xst]
   where key = "LS_password"
 
 
@@ -154,7 +167,7 @@ data RealTimeError = InvalidLogin
 
 decodeDataFeed :: BL.ByteString -> a -> Either RealTimeError a
 decodeDataFeed s x = let code = lsResponseCode (BL.toStrict s) in
-                             case code of
+                             case Debug.traceId (cs code) of
                                   "OK" -> Right $ x
                                   "1"  -> Left InvalidLogin
                                   "2"  -> Left UnavailableAdapterSet
@@ -181,6 +194,7 @@ decodeDataFeed s x = let code = lsResponseCode (BL.toStrict s) in
 lsResponseCode :: BS.ByteString -> Text
 lsResponseCode body = case message of
                            "ERROR" -> List.last $ List.take 2 readBody
+                           -- TODO This ought to handle SYNC errors as well
                            _ -> message
   where readBody = Text.splitOn "\r\n" . Text.strip . cs $ body
         message = Prelude.head readBody 
@@ -197,24 +211,27 @@ timeoutFlag = "TIMEOUT"
 
 
 listen :: Response BodyReader -> Text -> Text -> Text -> TChan StreamContent-> Int -> IO ()
-listen response sess_id sess_url host channel time = do
+listen response sess_id sess_url host channel timeoutMillis = do
   let body = Client.responseBody response
-  update <- brRead body
-  case getFeedState update of 
-       Timeout -> do
-         atomically $ writeTChan channel Timedout
-         responseClose response
-       Loop    ->  
-         rebindSession sess_id sess_url host channel time
-       End     -> do
-         atomically $ writeTChan channel Exhausted
-         responseClose response
-       Probe   -> do
-         listen response sess_id sess_url host channel time
-       Datum d -> do
-         let t = Update $ readTable d
-         atomically $ writeTChan channel t
-         listen response sess_id sess_url host channel time
+  let toMicrosecs = timeoutMillis * 1000
+  mUpdate <- timeout toMicrosecs (brRead body)
+  case mUpdate of
+       Just update -> 
+         case getFeedState update of 
+            Loop    ->  
+              rebindSession sess_id sess_url host channel timeoutMillis
+            End     -> do
+              atomically $ writeTChan channel Exhausted
+              responseClose response
+            Probe   -> do
+              listen response sess_id sess_url host channel timeoutMillis
+            Datum d -> do
+              let t = Update $ readTable d
+              atomically $ writeTChan channel t
+              listen response sess_id sess_url host channel timeoutMillis
+       Nothing -> do
+             atomically $ writeTChan channel Timedout
+             responseClose response
 
 
 getFeedState :: ByteString -> FeedState
