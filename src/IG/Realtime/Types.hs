@@ -7,6 +7,7 @@ import Data.Monoid
 import Data.String.Conversions
 import Data.Text (Text)
 import qualified Data.Text as Text
+import Data.Time
 import IG
 import Flow
 import Network.Wreq
@@ -175,6 +176,7 @@ instance ControlAttribute AccountFields
 data TradeFields = Confirms
                  | Opu
                  | Wou
+                 | Heartbeat
                  deriving (Eq, Ord, Show)
 
 
@@ -274,6 +276,7 @@ data LSValue = LSValue TableNo ItemNo [Maybe Text] deriving (Show)
 
 
 data StreamContent = Update LSValue
+                   | Beat UTCTime
                    | Timedout
                    | Exhausted
                    deriving (Show)
