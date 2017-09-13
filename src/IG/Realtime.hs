@@ -38,6 +38,7 @@ import qualified Data.Map.Strict as Map
 import Data.Monoid
 import Data.String.Conversions
 import Data.Text (Text)
+import Data.Time.Clock.POSIX
 import qualified Data.Text as Text 
 import qualified Debug.Trace as Debug
 import Flow
@@ -86,7 +87,8 @@ openSessionWith headers props host =
    eStream <- lift $ buildRequest headers encoded host >>= openStream 
    (id, sessUrl, time, stream) <- hoistEither eStream
    chan <- lift (atomically newTChan)
-   lift $ forkIO (listen stream id sessUrl host chan time)
+   lift $ forkIO (listen stream id host chan time)
+   lift $ heartBeat sessUrl id
    return (id, sessUrl, chan)
 
 
@@ -208,11 +210,8 @@ data FeedState = Loop
                | Datum Text
 
 
-timeoutFlag = "TIMEOUT"
-
-
-listen :: Response BodyReader -> Text -> Text -> Text -> TChan StreamContent-> Int -> IO ()
-listen response sess_id sess_url host channel timeoutMillis = do
+listen :: Response BodyReader -> Text -> Text -> TChan StreamContent-> Int -> IO ()
+listen response sess_id host channel timeoutMillis = do
   let body = Client.responseBody response
   let toMicrosecs = timeoutMillis * 1000
   mUpdate <- timeout toMicrosecs (brRead body)
@@ -220,16 +219,16 @@ listen response sess_id sess_url host channel timeoutMillis = do
        Just update -> 
          case getFeedState update of 
             Loop    ->  
-              rebindSession sess_id sess_url host channel timeoutMillis
+              rebindSession sess_id host channel timeoutMillis
             End     -> do
               atomically $ writeTChan channel Exhausted
               responseClose response
             Probe   -> do
-              listen response sess_id sess_url host channel timeoutMillis
+              listen response sess_id host channel timeoutMillis
             Datum d -> do
-              let t = Update $ readTable d
+              let t = readTable d
               atomically $ writeTChan channel t
-              listen response sess_id sess_url host channel timeoutMillis
+              listen response sess_id host channel timeoutMillis
        Nothing -> do
              atomically $ writeTChan channel Timedout
              responseClose response
@@ -247,14 +246,14 @@ getFeedState content =
   where noWhiteSpace = Text.strip . cs
 
 
-rebindSession :: Text -> Text -> Text -> TChan StreamContent-> Int -> IO ()
-rebindSession id sess_url host channel timeout = do
+rebindSession :: Text -> Text -> TChan StreamContent-> Int -> IO ()
+rebindSession id host channel timeout = do
   let url = streamUrl host rebindSess ("LS_session=" <> id)
   eResponse <- parseRequest url >>= openStream
   case eResponse of
        Left e -> Safe.abort (show e)
        Right (_,_,_,response) -> do
-         listen response id sess_url host channel timeout
+         listen response id host channel timeout
 
 
 
@@ -274,8 +273,9 @@ sessionData r = (sess_id, sess_url, timeout)
         errorMessage s = Safe.abort (s <> " " <> show body)
 
 
-readTable :: Text -> LSValue
-readTable t = LSValue tNum iNum values
+readTable :: Text -> StreamContent
+readTable t = if tNum == (-1) then mkHeartBeat $ head (tail splut)
+                              else Update $ LSValue tNum iNum values
   where splut = Text.splitOn "|" t
         nums = Text.splitOn "," (head splut)
         tNum = read $ cs (nums !! 0) :: TableNo
@@ -283,11 +283,16 @@ readTable t = LSValue tNum iNum values
         values = decodeUpdate $ tail splut 
 
 
+mkHeartBeat :: Text -> StreamContent
+mkHeartBeat = Beat . posixSecondsToUTCTime . fromIntegral . read . cs
+
+
 -- | Decode the update, respecting the protocol set out on page 29 of the 
 -- Network Protocol Tutorial
 decodeUpdate :: [Text] -> [Maybe Text]
 decodeUpdate = map maybeVal
   where checkTail t = if Text.null t then Nothing else Just t
+        -- TODO should this return Just v is Text.null is true?
         maybeVal v  = if Text.null v then Just v
                                      else case Text.head v of
                                                '#' -> checkTail (Text.tail v)
@@ -299,13 +304,13 @@ decodeUpdate = map maybeVal
 
 
 -- | Send a control message to the Lightstreamer server
-control :: Text -- ^ The url obtained from openSession
+control :: SessURL -- ^ The url obtained from openSession
         -> [ControlProperty] -- ^ The list of control properties. See docs for required properties
         -> Schema -- ^ The schema to use
         -> IO (Either RealTimeError ())
-control url atts schema = do
+control url props schema = do
   let opts = Wreq.defaults & Wreq.header "Content-Type" .~ ["application/x-www-form-urlencoded"]
-  let payload = lsBody atts schema
+  let payload = lsBody props schema
   let controlUrl = cs $ url <> "/lightstreamer/control.txt"
   -- TODO this should use try since postWith can throw an error (or is there a lib option? check)
   response <- Wreq.postWith opts controlUrl payload
@@ -314,6 +319,16 @@ control url atts schema = do
   case status ^. Wreq.statusCode of
        200 -> return $ decodeDataFeed body ()
        _ -> return $ Left (Other status)
+
+
+-- | Subscribe to the heartbeat. This is in order to try and keep the connection 
+-- alive and active when a data source is quiet. The Heartbeat's data is always
+-- returned under table -1
+heartBeat :: SessURL -> SessId -> IO (Either RealTimeError ())
+heartBeat url sId = control url props schema
+  where props = [ SessionId sId, Op Add, Mode Merge, Table (-1)]
+        schema = Trade beatId [Heartbeat]
+        beatId = "HB.U.HEARTBEAT.IP" 
 
 
 lsBody :: [ControlProperty] -> Schema -> [Wreq.FormParam]
