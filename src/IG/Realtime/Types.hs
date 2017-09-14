@@ -2,14 +2,12 @@ module IG.Realtime.Types where
 
 import Data.Char
 import Data.List as List
-import Data.List.Split
 import Data.Monoid
 import Data.String.Conversions
 import Data.Text (Text)
 import qualified Data.Text as Text
 import Data.Time
 import IG
-import Flow
 import Network.Wreq
 
 data StreamProperty = Password Text -- ^ The lightstreamer password, see @Realtime#tokens

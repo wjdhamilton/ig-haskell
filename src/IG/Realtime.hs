@@ -23,9 +23,7 @@ module IG.Realtime (openSession, openSessionWith, control, RealTimeError(..), Se
 
 import Control.Concurrent
 import Control.Concurrent.STM as STM
-import Control.Concurrent.STM.TChan as Chan
 import Control.Lens hiding ((|>))
-import Control.Monad
 import Control.Monad.Trans
 import Control.Monad.Trans.Either
 import Data.ByteString.Char8 (ByteString)
@@ -33,18 +31,12 @@ import qualified Data.ByteString.Char8 as BS hiding (last)
 import qualified Data.ByteString.Lazy.Char8 as BL hiding (last)
 import Data.List as List
 import Data.Maybe
-import Data.Map.Strict (Map)
-import qualified Data.Map.Strict as Map 
 import Data.Monoid
 import Data.String.Conversions
 import Data.Text (Text)
 import Data.Time.Clock.POSIX
 import qualified Data.Text as Text 
-import qualified Debug.Trace as Debug
-import Flow
-import IG
 import IG.REST
-import IG.REST.Login
 import IG.Realtime.Types
 import Network.HTTP.Client as Client
 import Network.HTTP.Client.TLS
@@ -172,7 +164,6 @@ decodeDataFeed s x = let code = lsResponseCode (BL.toStrict s) in
 lsResponseCode :: BS.ByteString -> Text
 lsResponseCode body = case message of
                            "ERROR" -> List.last $ List.take 2 readBody
-                           -- TODO This ought to handle SYNC errors as well
                            _ -> message
   where readBody = Text.splitOn "\r\n" . Text.strip . cs $ body
         message = fromMaybe "Cannot read response code" (headMay readBody)
@@ -182,6 +173,7 @@ data FeedState = Loop
                | Probe
                | End
                | Timeout
+               | SyncError
                | Datum Text
 
 
@@ -217,6 +209,7 @@ getFeedState content =
        "END"     -> End
        "LOOP"    -> Loop
        "TIMEOUT" -> Timeout
+       "SYNC ERROR" -> SyncError
        _         -> Datum $ noWhiteSpace content
   where noWhiteSpace = Text.strip . cs
 
