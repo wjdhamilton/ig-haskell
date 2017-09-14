@@ -237,7 +237,7 @@ sessionData :: BS.ByteString -> Either RealTimeError (Text, Text, Int)
 sessionData r = case (,,) <$> sess_id <*> sess_url <*> timeout of
                      Nothing -> Left SessionDataUnreadable
                      Just d  -> Right d
-  where sess_id    = atMay body 1 
+  where sess_id    = atMay body 1 >>= \iden -> Just $ extractArg iden
         sess_url   = atMay body 2 >>= \path -> Just $ "https://" <> extractArg path
         timeout    = atMay body 3 >>= \time -> readMay $ cs . extractArg $ time
         extractArg = last . Text.splitOn ":" . Text.strip 
