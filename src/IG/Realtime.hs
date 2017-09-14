@@ -126,45 +126,20 @@ openStream req = do
 -- | Open a connection to the IG real time sever. If an error occurs then Left
 -- RealTimeError is returned, otherwise Right (Response BodyReader)
 realTimeRequest :: Request -> Manager -> IO (Either RealTimeError (Text, Text, Int, Response BodyReader))
-realTimeRequest req man = do
-  response <- responseOpen req man
-  checkStatus response (\body -> let (id, url, timeout) = sessionData body in
-                                     (id, url, timeout, response))
+realTimeRequest req man = runEitherT $ lift (responseOpen req man) >>= \response ->
+                                       lift (checkStatus response) >>= 
+                                       hoistEither >>= \s ->
+                                       hoistEither (sessionData s) >>= \(id, url, timeout) ->
+                                       pure (id, url, timeout, response)
 
 
-checkStatus :: Response BodyReader -> (ByteString -> a) -> IO (Either RealTimeError a)
-checkStatus response f = do
+checkStatus :: Response BodyReader -> IO (Either RealTimeError BS.ByteString)
+checkStatus response = do
   let body = Client.responseBody response
   handshake <- brRead body
   case statusCode . responseStatus $ response of
-       200 -> return $ decodeDataFeed (BL.fromStrict handshake) (f handshake)
-       _   -> return $ Left (Other $ responseStatus response)
-
--- | The different errors that the Lighstreamer server can throw
-data RealTimeError = InvalidLogin
-                   | UnavailableAdapterSet
-                   | LicensedMaxSessionsReached
-                   | ConfiguredMaxSessionsReached
-                   | ConfiguredMaxServerLoadReached
-                   | NewSessionsBlocked
-                   | StreamingUnavailable
-                   | MetadataAdapterError
-                   | ClientVersionNotSupported
-                   | DataAdapterUnknown
-                   | TableNotFound
-                   | BadItemGroupName
-                   | BadItemGroupNameForSchema
-                   | BadFieldSchemaName
-                   | SubscriptionModeNotAllowed
-                   | BadSelectorName
-                   | NoUnfilteredDispatchFreq
-                   | NoUnfilteredDispatchPre
-                   | NoUnfilteredDispatch
-                   | RawModeNotAllowed
-                   | SubscriptionsNotAllowed
-                   | SubscriptionRefused
-                   | Other Status
-                   deriving (Eq, Show)
+       200 -> return $ Right handshake
+       _   -> return $ Left (Other $ show . responseStatus $ response)
 
 
 decodeDataFeed :: BL.ByteString -> a -> Either RealTimeError a
@@ -191,7 +166,7 @@ decodeDataFeed s x = let code = lsResponseCode (BL.toStrict s) in
                                   "29" -> Left RawModeNotAllowed
                                   "30" -> Left SubscriptionsNotAllowed
                                   "60" -> Left ClientVersionNotSupported
-                                  _    -> Safe.abort $ cs ("Could not decode: " <> code)
+                                  _    -> Left (Other $ cs code)
 
 
 lsResponseCode :: BS.ByteString -> Text
@@ -200,7 +175,7 @@ lsResponseCode body = case message of
                            -- TODO This ought to handle SYNC errors as well
                            _ -> message
   where readBody = Text.splitOn "\r\n" . Text.strip . cs $ body
-        message = Prelude.head readBody 
+        message = fromMaybe "Cannot read response code" (headMay readBody)
 
 
 data FeedState = Loop
@@ -251,26 +226,22 @@ rebindSession id host channel timeout = do
   let url = streamUrl host rebindSess ("LS_session=" <> id)
   eResponse <- parseRequest url >>= openStream
   case eResponse of
-       Left e -> Safe.abort (show e)
+       Left e -> 
+         atomically $ writeTChan channel (CannotRebind e)
        Right (_,_,_,response) -> do
          listen response id host channel timeout
 
 
 
-sessionData :: BS.ByteString -> (Text, Text, Int)
-sessionData r = (sess_id, sess_url, timeout) 
-  where body = Text.lines . cs $ r
+sessionData :: BS.ByteString -> Either RealTimeError (Text, Text, Int)
+sessionData r = case (,,) <$> sess_id <*> sess_url <*> timeout of
+                     Nothing -> Left SessionDataUnreadable
+                     Just d  -> Right d
+  where sess_id    = atMay body 1 
+        sess_url   = atMay body 2 >>= \path -> Just $ "https://" <> extractArg path
+        timeout    = atMay body 3 >>= \time -> readMay $ cs . extractArg $ time
         extractArg = last . Text.splitOn ":" . Text.strip 
-        sess_id  = case atMay body 1 of
-                        Just id -> 
-                          extractArg id
-                        Nothing -> 
-                          errorMessage "Session id could not be decoded" 
-        url = fromMaybe (errorMessage "Session url could not be decoded") (atMay body 2)
-        sess_url = "https://" <> extractArg url
-        timeout = fromMaybe (errorMessage "Timeout could not be decoded") 
-                            (atMay body 3 >>= (\s -> readMay $ cs . extractArg $ s))
-        errorMessage s = Safe.abort (s <> " " <> show body)
+        body = Text.lines . cs $ r
 
 
 readTable :: Text -> StreamContent
@@ -318,7 +289,7 @@ control url props schema = do
   let status = response ^. Wreq.responseStatus 
   case status ^. Wreq.statusCode of
        200 -> return $ decodeDataFeed body ()
-       _ -> return $ Left (Other status)
+       _ -> return $ Left (Other $ show status)
 
 
 -- | Subscribe to the heartbeat. This is in order to try and keep the connection 

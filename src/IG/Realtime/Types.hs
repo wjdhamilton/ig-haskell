@@ -275,8 +275,39 @@ type ItemNo = Int
 data LSValue = LSValue TableNo ItemNo [Maybe Text] deriving (Show)
 
 
-data StreamContent = Update LSValue
-                   | Beat UTCTime
-                   | Timedout
-                   | Exhausted
+-- | Represents the kinds of things that the IG server can send. 
+data StreamContent = Update LSValue -- ^ A data update
+                   | Beat UTCTime -- ^ A hearteat message, with its timestamp
+                   | Timedout -- ^ The IG server has timed out
+                   | Exhausted -- ^ The session has been exhausted. This is handled by reopening the session
+                   | CannotRebind RealTimeError-- ^ The stream has been exhausted, and rebind has failed
                    deriving (Show)
+
+-- | The different errors that the Lighstreamer server can throw
+data RealTimeError = InvalidLogin
+                   | UnavailableAdapterSet
+                   | LicensedMaxSessionsReached
+                   | ConfiguredMaxSessionsReached
+                   | ConfiguredMaxServerLoadReached
+                   | NewSessionsBlocked
+                   | StreamingUnavailable
+                   | MetadataAdapterError
+                   | ClientVersionNotSupported
+                   | DataAdapterUnknown
+                   | TableNotFound
+                   | BadItemGroupName
+                   | BadItemGroupNameForSchema
+                   | BadFieldSchemaName
+                   | SubscriptionModeNotAllowed
+                   | BadSelectorName
+                   | NoUnfilteredDispatchFreq
+                   | NoUnfilteredDispatchPre
+                   | NoUnfilteredDispatch
+                   | RawModeNotAllowed
+                   | SubscriptionsNotAllowed
+                   | SubscriptionRefused
+                   | SessionDataUnreadable
+                   | Other String
+                   deriving (Eq, Show)
+
+
