@@ -56,6 +56,7 @@ encodeProperty (Selector s)        = "LS_selector" := s
 encodeProperty (Mode m)            = "LS_mode" := encode m
 encodeProperty (ReqBufferSize n)   = "LS_requested_buffer_size" := show n
 encodeProperty (ReqMaxFrequency f) = "LS_requested_max_frequency" := encode f
+encodeProperty (Snapshot att)     = "LS_requested_max_frequency" := encode att
 
 
 class (Eq a, Ord a, Show a) => ControlAttribute a where
@@ -105,8 +106,8 @@ encodeSchema s@(ChartTick _ fs)     = [schemaId s, schemaParams fs]
 schemaId :: Schema -> FormParam
 schemaId (Market e _) = "LS_id" := "MARKET:" <> e
 schemaId (SprintMarket e _) = "LS_id" := "MARKET:" <> e
-schemaId (Account id _) = "LS_id" := "ACCOUNT:" <> id
-schemaId (Trade id _) = "LS_id" := "TRADE:" <> id
+schemaId (Account ident _) = "LS_id" := "ACCOUNT:" <> ident
+schemaId (Trade ident _) = "LS_id" := "TRADE:" <> ident
 schemaId (Chart e t  _) = "LS_id" := "CHART:" <> e <> ":" <> encode t
 schemaId (ChartTick e _) = "LS_id" := "CHART:" <> e <> ":TICK"
 
@@ -263,8 +264,8 @@ toText = cs . show
 snakeCase :: Text -> Text
 snakeCase t =  cs . tail . snake . cs $ t
   where snake []     = []
-        snake (c:cs) = if isUpper c then '_' : c : snake cs
-                                    else c : snake cs
+        snake (c:chars) = if isUpper c then '_' : c : snake chars
+                                    else c : snake chars
 
 type TableNo = Int
 type ItemNo = Int

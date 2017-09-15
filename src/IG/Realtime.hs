@@ -38,24 +38,25 @@ import Data.Time.Clock.POSIX
 import qualified Data.Text as Text 
 import IG.REST
 import IG.Realtime.Types
-import Network.HTTP.Client as Client
+import Network.HTTP.Client (BodyReader, Manager, Response, Request)
+import qualified Network.HTTP.Client as Client
 import Network.HTTP.Client.TLS
-import Network.HTTP.Types.Status (Status, statusCode)
+import Network.HTTP.Types.Status (statusCode)
 import qualified Network.Wreq  as Wreq
 import Safe
-import System.Timeout
+import qualified System.Timeout as TO
 
-
-import Debug.Trace as Debug
 
 type SessId = Text
 type SessURL = Text
 type RealTimeURL = Text
 
 -- | Url segment to create a session
+createSess :: Text
 createSess = "/create_session.txt"
 
 -- | Url segment to rebind to a session
+rebindSess :: Text
 rebindSess = "/bind_session.txt"
 
 -- | Open a new session with IG Streaming API. This process requires a set of
@@ -65,39 +66,39 @@ rebindSess = "/bind_session.txt"
 openSession :: AuthHeaders 
             -> RealTimeURL 
             -> IO(Either RealTimeError (SessId, SessURL, TChan StreamContent))
-openSession headers host =
- openSessionWith headers [] host
+openSession headers rtHost =
+ openSessionWith headers [] rtHost
 
 
 openSessionWith :: AuthHeaders 
                 -> [StreamProperty] 
                 -> RealTimeURL
                 -> IO(Either RealTimeError (SessId, SessURL, TChan StreamContent))
-openSessionWith headers props host =
+openSessionWith headers props rtHost =
  runEitherT $ do
    let encoded = map encodeStreamProperty props
-   eStream <- lift $ buildRequest headers encoded host >>= openStream 
-   (id, sessUrl, time, stream) <- hoistEither eStream
+   eStream <- lift $ buildRequest headers encoded rtHost >>= openStream 
+   (ident, sessUrl, time, stream) <- hoistEither eStream
    chan <- lift (atomically newTChan)
-   lift $ forkIO (listen stream id host chan time)
-   lift $ heartBeat sessUrl id
-   return (id, sessUrl, chan)
+   lift $ forkIO (listen stream ident rtHost chan time)
+   lift $ heartBeat sessUrl ident
+   return (ident, sessUrl, chan)
 
 
 buildRequest :: AuthHeaders -> [Text] -> RealTimeURL -> IO Request
 buildRequest headers queries url = do
-  let queryString = mconcat . List.intersperse "&" $ (mkRealtimeAuth headers : queries)
-  initialStream <- parseRequest (streamUrl url createSess queryString)
-  return $ initialStream { method = "POST" }
+  let qString = mconcat . List.intersperse "&" $ (mkRealtimeAuth headers : queries)
+  initialStream <- Client.parseRequest (streamUrl url createSess qString)
+  return $ initialStream { Client.method = "POST" }
 
 
 streamUrl :: Text -> Text -> Text -> String
-streamUrl host path query = 
-  cs $ realTimeBase host <> path <> "?" <> query
+streamUrl rtHost path query = 
+  cs $ realTimeBase rtHost <> path <> "?" <> query
 
 
 mkRealtimeAuth :: AuthHeaders -> Text
-mkRealtimeAuth (AuthHeaders cst xst _ _) = mconcat [key, "=", tokens cst xst]
+mkRealtimeAuth (AuthHeaders cst xt _ _) = mconcat [key, "=", tokens cst xt]
   where key = "LS_password"
 
 
@@ -106,32 +107,32 @@ tokens cst xst = "CST-" <> cst <> "|" <> "XST-" <> xst
 
 
 realTimeBase :: Text -> Text
-realTimeBase host = host <> "/lightstreamer"
+realTimeBase rtHost = rtHost <> "/lightstreamer"
 
 
 openStream :: Request -> IO (Either RealTimeError (Text, Text, Int, Response BodyReader))
 openStream req = do
-  manager <- newManager tlsManagerSettings
+  manager <- Client.newManager tlsManagerSettings
   realTimeRequest req manager
 
 
 -- | Open a connection to the IG real time sever. If an error occurs then Left
 -- RealTimeError is returned, otherwise Right (Response BodyReader)
 realTimeRequest :: Request -> Manager -> IO (Either RealTimeError (Text, Text, Int, Response BodyReader))
-realTimeRequest req man = runEitherT $ lift (responseOpen req man) >>= \response ->
+realTimeRequest req man = runEitherT $ lift (Client.responseOpen req man) >>= \response ->
                                        lift (checkStatus response) >>= 
                                        hoistEither >>= \s ->
-                                       hoistEither (sessionData s) >>= \(id, url, timeout) ->
-                                       pure (id, url, timeout, response)
+                                       hoistEither (sessionData s) >>= \(ident, url, timeout) ->
+                                       pure (ident, url, timeout, response)
 
 
 checkStatus :: Response BodyReader -> IO (Either RealTimeError BS.ByteString)
 checkStatus response = do
   let body = Client.responseBody response
-  handshake <- brRead body
-  case statusCode . responseStatus $ response of
+  handshake <- Client.brRead body
+  case statusCode . Client.responseStatus $ response of
        200 -> return $ Right handshake
-       _   -> return $ Left (Other $ show . responseStatus $ response)
+       _   -> return $ Left (Other $ show . Client.responseStatus $ response)
 
 
 decodeDataFeed :: BL.ByteString -> a -> Either RealTimeError a
@@ -178,27 +179,31 @@ data FeedState = Loop
 
 
 listen :: Response BodyReader -> Text -> Text -> TChan StreamContent-> Int -> IO ()
-listen response sess_id host channel timeoutMillis = do
+listen response sess_id rtHost channel timeoutMillis = do
   let body = Client.responseBody response
   let toMicrosecs = timeoutMillis * 1000
-  mUpdate <- timeout toMicrosecs (brRead body)
+  mUpdate <- TO.timeout toMicrosecs (Client.brRead body)
   case mUpdate of
        Just update -> 
          case getFeedState update of 
             Loop    ->  
-              rebindSession sess_id host channel timeoutMillis
+              rebindSession sess_id rtHost channel timeoutMillis
             End     -> do
               atomically $ writeTChan channel Exhausted
-              responseClose response
+              Client.responseClose response
             Probe   -> do
-              listen response sess_id host channel timeoutMillis
+              listen response sess_id rtHost channel timeoutMillis
             Datum d -> do
               let t = readTable d
               atomically $ writeTChan channel t
-              listen response sess_id host channel timeoutMillis
+              listen response sess_id rtHost channel timeoutMillis
+            Timeout -> 
+              atomically $ writeTChan channel Timedout
+            SyncError -> 
+              rebindSession sess_id rtHost channel timeoutMillis
        Nothing -> do
              atomically $ writeTChan channel Timedout
-             responseClose response
+             Client.responseClose response
 
 
 getFeedState :: ByteString -> FeedState
@@ -215,24 +220,24 @@ getFeedState content =
 
 
 rebindSession :: Text -> Text -> TChan StreamContent-> Int -> IO ()
-rebindSession id host channel timeout = do
-  let url = streamUrl host rebindSess ("LS_session=" <> id)
-  eResponse <- parseRequest url >>= openStream
+rebindSession ident rtHost channel timeout = do
+  let url = streamUrl rtHost rebindSess ("LS_session=" <> ident)
+  eResponse <- Client.parseRequest url >>= openStream
   case eResponse of
        Left e -> 
          atomically $ writeTChan channel (CannotRebind e)
        Right (_,_,_,response) -> do
-         listen response id host channel timeout
+         listen response ident rtHost channel timeout
 
 
 
 sessionData :: BS.ByteString -> Either RealTimeError (Text, Text, Int)
-sessionData r = case (,,) <$> sess_id <*> sess_url <*> timeout of
+sessionData r = case (,,) <$> sess_id <*> sess_url <*> time of
                      Nothing -> Left SessionDataUnreadable
                      Just d  -> Right d
   where sess_id    = atMay body 1 >>= \iden -> Just $ extractArg iden
         sess_url   = atMay body 2 >>= \path -> Just $ "https://" <> extractArg path
-        timeout    = atMay body 3 >>= \time -> readMay $ cs . extractArg $ time
+        time    = atMay body 3 >>= \t -> readMay $ cs . extractArg $ t
         extractArg = last . Text.splitOn ":" . Text.strip 
         body = Text.lines . cs $ r
 
