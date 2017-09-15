@@ -5,11 +5,8 @@
 module IG.REST.Dealing.Types where
 
 import Data.Aeson
-import Data.Monoid
 import GHC.Generics
 import Data.Text (Text)
-import qualified Data.Text as Text
-import Data.Maybe
 import IG.REST
 
 

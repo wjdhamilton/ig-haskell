@@ -7,10 +7,8 @@ import Control.Lens hiding (from, to)
 import Data.Aeson
 import Data.Aeson.Types hiding (Options)
 import Data.List as List
-import Data.Monoid 
 import Data.String.Conversions
 import Data.Text as Text
-import Data.Text.Encoding as TE
 import IG
 import IG.REST
 import IG.REST.Markets.Types

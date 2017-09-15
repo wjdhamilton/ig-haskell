@@ -9,6 +9,7 @@ import Data.Aeson.Lens
 import qualified Data.ByteString.Char8 as BS
 import qualified Data.ByteString.Lazy.Char8 as BL
 import Data.Map.Strict as Map
+import Data.Maybe
 import Data.Monoid
 import Data.String.Conversions
 import Data.Text as Text
@@ -17,10 +18,7 @@ import Data.Scientific
 import GHC.Generics
 import IG (ApiError, apiError, decodeError, host)
 import IG.REST
-import Network.HTTP.Types hiding (statusCode)
 import Network.Wreq
-import Data.Either.Unwrap
-import Data.Maybe
 
 
 data Credentials = Credentials { demo :: Credential
@@ -274,9 +272,3 @@ switchAccount a@(AuthHeaders _ _ _ isLogin) id isDefault = do
 
 accountsPath :: Bool -> String
 accountsPath isLogin = cs $ host isLogin </> restPath
-
-
-encryptionKey = undefined
-
-
-tokenRefresh = undefined

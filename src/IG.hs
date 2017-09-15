@@ -6,14 +6,13 @@ import Data.Aeson
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.Lazy as BL
 import Data.Map.Strict as Map
+import Data.Monoid
 import qualified Data.HashMap.Strict as HM
 import Data.Text (Text)
-import qualified Data.Text as Text
 import Data.Text.Encoding
 import Flow
 import Network.Wreq
 import Prelude hiding (lookup)
-import Text.Regex.PCRE hiding (empty)
 
 
 -- | Returns the host url of the IG API server. 
@@ -90,7 +89,8 @@ findError (Object o) = lookup key errorMap
                    Nothing -> "oops"
                    Just (String e) -> e
                    -- errorCode should always map to a string
-                   Just x          -> "oops"
+                   Just _          -> "oops"
+findError x = error ("Unexpected value in error" <> show x)
 
 
 errorMap :: Map Text ApiError

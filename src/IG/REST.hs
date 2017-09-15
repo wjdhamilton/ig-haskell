@@ -3,19 +3,14 @@ module IG.REST where
 
 import Control.Lens
 import Data.Aeson
-import Data.Aeson.Lens
 import Data.ByteString.Lazy as BL
-import Data.Either.Unwrap
-import Data.Maybe
 import Data.Monoid
 import Data.String.Conversions
 import Data.Text as Text
-import Data.Text.Encoding as TE
 import Data.Time
 import GHC.Generics
 import IG
 import Network.HTTP.Client.TLS (tlsManagerSettings)
-import Network.HTTP.Types hiding (statusCode)
 import Network.Wreq
 
 
@@ -36,12 +31,15 @@ data AuthHeaders = AuthHeaders { cst :: Text -- ^ The Client Security Token
                                } deriving (Eq, Show)
 
 
+v1 :: AuthHeaders -> Options
 v1 = buildHeaders "1"
 
 
+v2 :: AuthHeaders -> Options
 v2 = buildHeaders "2"
 
 
+v3 :: AuthHeaders -> Options
 v3 = buildHeaders "3"
 
 
@@ -80,8 +78,10 @@ apiRequest request = do
 utcDateTimeFormat :: String
 utcDateTimeFormat = iso8601DateFormat $ Just "%H:%M:%S%Q"
 
+formats :: [String]
 formats = [ "%H:%M:%S%Q", "%H:%M" ]
 
+dateFormats :: [String]
 dateFormats = Prelude.map (iso8601DateFormat . Just) formats
 
 data UTCDate = UTCDate UTCTime
@@ -119,7 +119,7 @@ instance FromJSON DealTime where
 
 
 tryFormats :: [String] -> Text -> Maybe UTCTime
-tryFormats [] t = Nothing
+tryFormats [] _ = Nothing
 tryFormats (f:fs) t = case parseTimeM True defaultTimeLocale f (cs t) of
                            Just date -> Just  date
                            Nothing -> tryFormats fs t

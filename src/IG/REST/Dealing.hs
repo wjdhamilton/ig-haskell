@@ -4,14 +4,10 @@ module IG.REST.Dealing where
 
 import Control.Lens
 import Data.Aeson
-import Data.Aeson.Lens
 import Data.Maybe
 import Data.Monoid
 import Data.String.Conversions
 import Data.Text (Text)
-import qualified Data.Text as Text
-import Data.Time
-import GHC.Generics
 import IG
 import IG.REST
 import IG.REST.Dealing.Types
@@ -79,10 +75,6 @@ toClosePositionRequest PositionData {position, market} opts =
         dealLevel = level (opts :: CloseOptions)
 
 
--- | Close several positions
-closePositions a@(AuthHeaders _ _ _ isDemo) = undefined
-
-
 -- | Create a new position. The outcome of this action needs is ascertained using
 -- @confirms
 createPosition :: AuthHeaders -> PositionRequest -> IO (Either ApiError DealReference)
@@ -99,14 +91,6 @@ updatePosition a@(AuthHeaders _ _ _ isDemo) id req = do
   apiRequest $ putWith opts url (toJSON req)
 
 
--- | Return a list of all open sprint market positions for the active account
-sprintPositions a@(AuthHeaders _ _ _ isDemo) = undefined
-
-
--- | Create a sprint market position
-createSprintPosition a@(AuthHeaders _ _ _ isDemo) = undefined
-
-
 -- | Return all open working orders for the active account
 getWorkingOrders :: AuthHeaders -> IO (Either ApiError WorkingOrdersResponse)
 getWorkingOrders a@(AuthHeaders _ _ _ isDemo) = do
@@ -115,6 +99,7 @@ getWorkingOrders a@(AuthHeaders _ _ _ isDemo) = do
   apiRequest $ getWith opts url
 
 
+otcWorkingOrderPath :: Bool -> Maybe Text -> Text
 otcWorkingOrderPath isDemo mId =
   host isDemo </> restPathSegment </> "workingorders" </> "otc" </> id
   where id = fromMaybe "" mId

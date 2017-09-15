@@ -3,6 +3,8 @@
 module IG.REST.Markets.Types where
 
 import Data.Aeson
+import Data.Monoid
+import Data.String.Conversions
 import Data.Text
 import Data.Time
 import IG.REST
@@ -271,6 +273,7 @@ instance FromJSON MarketOrderPreference where
          "AVAILABLE_DEFAULT_OFF" -> return AVAILABLE_DEFAULT_OFF
          "AVAILABLE_DEFAULT_ON"  -> return AVAILABLE_DEFAULT_ON
          "NOT_AVAILABLE"         -> return MO_NOT_AVAILABLE
+         x                       -> error ("MarketOrderPreference " <> cs x <> " not recognised")
 
 
 data HistoricalPrices = HistoricalPrices { instrumentType :: InstrumentType

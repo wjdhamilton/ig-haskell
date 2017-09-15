@@ -2,11 +2,9 @@ module IG.REST.Accounts where
 
 import Data.Aeson.Types 
 import Data.String.Conversions
-import Data.Text as Text
 import IG
 import IG.REST
 import IG.REST.Accounts.Types
-import IG.REST.Login
 import Network.Wreq
 
 
