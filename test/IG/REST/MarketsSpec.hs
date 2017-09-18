@@ -2,23 +2,17 @@
 {-# LANGUAGE OverloadedStrings #-}
 module IG.REST.MarketsSpec (spec) where
 
-import Control.Lens
 import Control.Monad
-import Data.Aeson
 import Data.Aeson.Lens
-import Data.ByteString.Lazy.Char8 as BL
 import Data.Either
 import Data.Either.Unwrap hiding (isRight)
 import Data.Maybe
-import Data.Monoid
 import Data.Text as Text hiding (filter, head, map)
 import IG
-import IG.Realtime
 import IG.REST
 import IG.REST.Login
 import IG.REST.Markets
 import IG.REST.Markets.Types
-import System.IO
 import System.Directory
 import Test.Hspec
 
@@ -29,6 +23,7 @@ spec = do
   describe "navigateMarkets" $ navigateMarketsSpec headers 
   describe "markets" $ marketsSpec headers 
   describe "historical data" $ historicalDataSpec headers
+  describe "market" $ marketSpec headers
 
 
 navigateMarketsSpec :: AuthHeaders -> Spec
@@ -48,11 +43,21 @@ navigateMarketsSpec h = do
 marketsSpec :: AuthHeaders -> Spec
 marketsSpec h = do
 
-  it "should download the details of the markets" $ do
+  it "should make a successful request" $ do
     let epics = ["IX.D.FTSE.DAILY.IP","IX.D.SAF.DAILY.IP"]
     resp <- IG.REST.Markets.markets h epics
     isRight resp `shouldBe` True
 
+  -- Cannot work out how to overcome "Ambiguous occurrence 'epic'" in this function
+  -- it "should download the correct market" $ do
+  --   let epics = ["IX.D.FTSE.DAILY.IP"]
+  --   resp <- IG.REST.Markets.markets h epics
+  --   case resp of
+  --        Left e -> 
+  --          fail $ show e
+  --        Right r ->
+  --          let ep = epic . instrument $ (head r :: Market) in
+  --          ep == head epics `shouldBe` True
 
 
 historicalDataSpec :: AuthHeaders -> Spec
@@ -63,4 +68,12 @@ historicalDataSpec h =
    let opts = HistoryOpts Nothing Nothing Nothing Nothing
    resp <- historicalData h epic opts Nothing
    isRight resp `shouldBe` True
-  
+
+
+marketSpec :: AuthHeaders -> Spec
+marketSpec h = 
+
+  it "should successfully perform the request" $ do
+   let epic = "IX.D.FTSE.DAILY.IP"
+   resp <- IG.REST.Markets.market h epic
+   isRight resp `shouldBe` True

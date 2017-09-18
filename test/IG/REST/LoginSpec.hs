@@ -1,18 +1,11 @@
 {-# LANGUAGE OverloadedStrings #-}
 module IG.REST.LoginSpec (spec) where
 
-import Control.Lens
-import Data.Aeson
-import Data.Aeson.Lens
 import Data.Either
 import Data.Either.Unwrap hiding (isRight)
-import Data.Maybe
-import Data.Monoid
 import Data.Text as Text hiding (filter, head, map)
 import IG
 import IG.REST.Login
-import System.IO
-import System.Directory
 import Test.Hspec
 
 spec :: Spec

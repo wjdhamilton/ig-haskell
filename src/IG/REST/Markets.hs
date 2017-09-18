@@ -50,6 +50,14 @@ markets a@(AuthHeaders _ _ _ isDemo) epics = do
                 Right details -> return $ Right details
 
 
+market :: AuthHeaders -> Epic -> IO (Either ApiError MarketDetails)
+market a@(AuthHeaders _ _ _ isDemo) e = do
+  let opts = v2 a
+  let url = cs $ marketUrl isDemo </> "markets" </> e
+  apiRequest $ getWith opts url 
+                                    
+
+
 historicalData :: AuthHeaders -> Epic -> HistoryOpts -> Maybe Int -> IO (Either ApiError HistoricalPrices)
 historicalData a@(AuthHeaders _ _ _ isDemo) e hOpts page = do
   let opts = v3 a -? ("from", from hOpts) 

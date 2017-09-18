@@ -8,7 +8,6 @@ import Control.Monad.Trans.Either
 import Data.Either
 import Data.Either.Unwrap hiding (isRight)
 import Data.Monoid
-import Flow
 import IG
 import IG.REST
 import IG.REST.Dealing

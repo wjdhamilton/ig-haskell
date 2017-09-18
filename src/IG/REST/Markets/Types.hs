@@ -96,7 +96,7 @@ data Instrument = Instrument { chartCode :: Maybe Text
                              , expiry :: InstrumentExpiry
                              , expiryDetails :: ExpiryDetails
                              , forceOpenAllowed :: Bool
-                             , limitedRiskPremium :: DealingRule
+                             , limitedRiskPremium :: Maybe DealingRule
                              , lotSize :: Double
                              , marginDepositBands :: [DepositBand]
                              , marginFactor :: Double
@@ -131,7 +131,7 @@ instance FromJSON Instrument where
     expiry                <- r .: "expiry" 
     expiryDetails         <- r .: "expiryDetails" 
     forceOpenAllowed      <- r .: "forceOpenAllowed" 
-    limitedRiskPremium    <- r .: "limitedRiskPremium" 
+    limitedRiskPremium    <- r .:? "limitedRiskPremium" 
     lotSize               <- r .: "lotSize" 
     marginDepositBands    <- r .: "marginDepositBands" 
     marginFactor          <- r .: "marginFactor" 
@@ -234,8 +234,8 @@ data DealingRule = DealingRule { unit :: UnitDimension
 instance FromJSON DealingRule
 
 
-data ExpiryDetails = ExpiryDetails { lastDealingDate :: UTCDate
-                                   , settlementInfo :: Text
+data ExpiryDetails = ExpiryDetails { -- lastDealingDate :: UTCDate TODO: Need to write a custom parser for this one. The format is dd/mm/yy HH:MM
+                                   settlementInfo :: Text
                                    } deriving (Generic, Show)
 
 instance FromJSON ExpiryDetails
