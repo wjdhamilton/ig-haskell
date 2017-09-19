@@ -103,7 +103,7 @@ instance ToJSON UTCDate where
 
 
 -- | Represents a time point as returned by the API
-data DealTime = DealTime UTCTime 
+newtype DealTime = DealTime UTCTime 
               deriving (Eq, Ord, Show)
 
 -- TODO: Why not add this to the list of available formats and change the 
