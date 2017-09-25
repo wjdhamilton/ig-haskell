@@ -194,7 +194,9 @@ listen response sess_id rtHost channel timeoutMillis = do
             Probe   -> do
               listen response sess_id rtHost channel timeoutMillis
             Datum d -> do
-              let t = readTable d
+              let t = case readTable d of
+                           Left e -> TableUnparseable e
+                           Right v -> v
               atomically $ writeTChan channel t
               listen response sess_id rtHost channel timeoutMillis
             Timeout -> 
@@ -233,7 +235,7 @@ rebindSession ident rtHost channel timeout = do
 
 sessionData :: BS.ByteString -> Either RealTimeError (Text, Text, Int)
 sessionData r = case (,,) <$> sess_id <*> sess_url <*> time of
-                     Nothing -> Left SessionDataUnreadable
+                     Nothing -> Left $ SessionDataUnreadable (cs r)
                      Just d  -> Right d
   where sess_id    = atMay body 1 >>= \iden -> Just $ extractArg iden
         sess_url   = atMay body 2 >>= \path -> Just $ "https://" <> extractArg path
@@ -242,14 +244,19 @@ sessionData r = case (,,) <$> sess_id <*> sess_url <*> time of
         body = Text.lines . cs $ r
 
 
-readTable :: Text -> StreamContent
-readTable t = if tNum == (-1) then mkHeartBeat $ head (tail splut)
-                              else Update $ LSValue tNum iNum values
-  where splut = Text.splitOn "|" t
-        nums = Text.splitOn "," (head splut)
-        tNum = read $ cs (nums !! 0) :: TableNo
-        iNum = read $ cs (nums !! 1) :: ItemNo
+readTable :: Text -> Either Text StreamContent
+readTable t = case content of
+                   Nothing ->
+                     Left t
+                   Just v  ->
+                     Right v
+  where splut  = Text.splitOn "|" t
+        nums   = Text.splitOn "," (head splut)
         values = decodeUpdate $ tail splut 
+        content = (readMay $ cs (nums !! 0) :: Maybe TableNo) >>= \tN ->
+                  (readMay $ cs (nums !! 0) :: Maybe ItemNo)  >>= \iN ->
+                  if tN == (-1) then Just (mkHeartBeat $ head (tail splut))
+                                else Just (Update $ LSValue tN iN values)
 
 
 mkHeartBeat :: Text -> StreamContent

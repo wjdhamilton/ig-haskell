@@ -280,6 +280,7 @@ data StreamContent = Update LSValue -- ^ A data update
                    | Timedout -- ^ The IG server has timed out
                    | Exhausted -- ^ The session has been exhausted. This is handled by reopening the session
                    | CannotRebind RealTimeError-- ^ The stream has been exhausted, and rebind has failed
+                   | TableUnparseable Text -- ^ The table content cannot be parsed
                    deriving (Show)
 
 -- | The different errors that the Lighstreamer server can throw
@@ -305,7 +306,7 @@ data RealTimeError = InvalidLogin
                    | RawModeNotAllowed
                    | SubscriptionsNotAllowed
                    | SubscriptionRefused
-                   | SessionDataUnreadable
+                   | SessionDataUnreadable Text
                    | Other String
                    deriving (Eq, Show)
 
