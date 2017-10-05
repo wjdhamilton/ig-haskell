@@ -254,7 +254,7 @@ readTable t = case content of
         nums   = Text.splitOn "," (head splut)
         values = decodeUpdate $ tail splut 
         content = (readMay $ cs (nums !! 0) :: Maybe TableNo) >>= \tN ->
-                  (readMay $ cs (nums !! 0) :: Maybe ItemNo)  >>= \iN ->
+                  (readMay $ cs (nums !! 1) :: Maybe ItemNo)  >>= \iN ->
                   if tN == (-1) then Just (mkHeartBeat $ head (tail splut))
                                 else Just (Update $ LSValue tN iN values)
 

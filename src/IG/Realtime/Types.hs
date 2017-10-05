@@ -10,6 +10,9 @@ import Data.Time
 import IG
 import Network.Wreq
 
+-- | There are a couple of properties which are specified in the Network Protocol
+-- tutorial which should not be used. Notably, CREATE, which is specified on page
+-- 16 returns "ERROR\r\n60\r\nLicense not valid for this Client version\r\n" 
 data StreamProperty = Password Text -- ^ The lightstreamer password, see @Realtime#tokens
                     | MaxBandwidth Int -- ^ Optional. 
                     | ContentLength Int -- ^ Optional. Content-Length to be used for the connection.
@@ -67,8 +70,10 @@ class (Eq a, Ord a, Show a) => ControlAttribute a where
 -- | Options for adding a table to a subscription
 data StreamOp = Add 
               | AddSilent 
-              | Start 
               | Delete
+              | Destroy
+              | Reconf
+              | Start 
               deriving (Eq, Ord, Show)
 
 
@@ -92,6 +97,7 @@ data Schema = Market Epic [MarketFields]
             | Trade AccountId [TradeFields]
             | Chart Epic TimeSlice [ChartFields]
             | ChartTick Epic [TickFields]
+            | Empty
 
 
 encodeSchema :: Schema -> [FormParam]
@@ -101,15 +107,17 @@ encodeSchema s@(Account _ fs)       = [schemaId s, schemaParams fs]
 encodeSchema s@(Trade _ fs)         = [schemaId s, schemaParams fs]
 encodeSchema s@(Chart _ _ fs)       = [schemaId s, schemaParams fs]
 encodeSchema s@(ChartTick _ fs)     = [schemaId s, schemaParams fs]
+encodeSchema Empty                  = []
 
 
 schemaId :: Schema -> FormParam
-schemaId (Market e _) = "LS_id" := "MARKET:" <> e
+schemaId (Market e _)       = "LS_id" := "MARKET:" <> e
 schemaId (SprintMarket e _) = "LS_id" := "MARKET:" <> e
-schemaId (Account ident _) = "LS_id" := "ACCOUNT:" <> ident
-schemaId (Trade ident _) = "LS_id" := "TRADE:" <> ident
-schemaId (Chart e t  _) = "LS_id" := "CHART:" <> e <> ":" <> encode t
-schemaId (ChartTick e _) = "LS_id" := "CHART:" <> e <> ":TICK"
+schemaId (Account ident _)  = "LS_id" := "ACCOUNT:" <> ident
+schemaId (Trade ident _)    = "LS_id" := "TRADE:" <> ident
+schemaId (Chart e t  _)     = "LS_id" := "CHART:" <> e <> ":" <> encode t
+schemaId (ChartTick e _)    = "LS_id" := "CHART:" <> e <> ":TICK"
+schemaId Empty              = undefined -- this shouldn't be used!
 
 
 
